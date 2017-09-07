@@ -4,12 +4,11 @@ import groovy.util.logging.Slf4j
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.UnexpectedBuildFailure
-import org.gradle.testkit.runner.internal.FeatureCheckBuildResult
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
-import spock.lang.*
+import spock.lang.Specification
 
-import static org.gradle.testkit.runner.TaskOutcome.*
+import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
 
 /**
  * <br><br>
@@ -19,16 +18,17 @@ import static org.gradle.testkit.runner.TaskOutcome.*
  */
 @Slf4j
 class BuildScriptsSpec extends Specification {
-    @Rule final TemporaryFolder testProjectDir = new TemporaryFolder()
+    @Rule
+    final TemporaryFolder testProjectDir = new TemporaryFolder()
     File buildFile
 
     def "setup"() {
         log.info("setup spec")
         buildFile = testProjectDir.newFile('build.gradle')
         def srcdir = testProjectDir.newFolder('src', 'main', 'groovy', 'dummypackage')
-        File mainclass = new File(srcdir,'SimpleMain.groovy')
+        File mainclass = new File(srcdir, 'SimpleMain.groovy')
         mainclass.createNewFile()
-        mainclass <<"""
+        mainclass << """
 package dummypackage
 
 class DockerplugindemoApplication {
@@ -42,9 +42,9 @@ class DockerplugindemoApplication {
     }
 
 
-    def 'bootRepackage by itself works'(){
+    def 'bootRepackage by itself works'() {
         given:
-        buildFile <<"""
+        buildFile << """
 buildscript {
 	ext {
 		springBootVersion = '1.5.6.RELEASE'
@@ -83,7 +83,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build','--stacktrace')
+                .withArguments('build', '--stacktrace')
                 .build()
 
         then:
@@ -91,9 +91,9 @@ dependencies {
         result.task(':build').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare to vanilla build'(){
+    def 'apply dockerprepare to vanilla build'() {
         given:
-        buildFile <<"""
+        buildFile << """
 plugins {
     id 'com.garyclayburg.dockerprepare'
     id 'org.springframework.boot' version '1.5.6.RELEASE'
@@ -126,7 +126,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare','--stacktrace','--info')
+                .withArguments('dockerPrepare', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
 
@@ -136,9 +136,9 @@ dependencies {
         result.task(':copyClasses').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare without explicit dockerlayer{}'(){
+    def 'apply dockerprepare without explicit dockerlayer{}'() {
         given:
-        buildFile <<"""
+        buildFile << """
 plugins {
     id 'com.garyclayburg.dockerprepare'
     id 'org.springframework.boot' version '1.5.6.RELEASE'
@@ -165,7 +165,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare','--stacktrace')
+                .withArguments('dockerPrepare', '--stacktrace')
                 .withPluginClasspath()
                 .build()
 
@@ -175,9 +175,9 @@ dependencies {
         result.task(':copyClasses').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare without springboot'(){
+    def 'apply dockerprepare without springboot'() {
         given:
-        buildFile <<"""
+        buildFile << """
 plugins {
     id 'com.garyclayburg.dockerprepare'
 }
@@ -205,7 +205,7 @@ dependencies {
         when:
         GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare','--info')
+                .withArguments('dockerPrepare', '--info')
                 .withPluginClasspath()
                 .build()
 
