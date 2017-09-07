@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.gradle.sample
+package com.garyclayburg.docker
 
 import org.gradle.testkit.runner.GradleRunner
 import org.junit.Rule
@@ -32,7 +32,7 @@ class BuildLogicFunctionalTest extends Specification {
         buildFile = testProjectDir.newFile('build.gradle')
     }
 
-    def "hello world task prints hello world"() {
+    def "dockerprepare plugin loads"() {
         given:
         buildFile << """
             plugins {

@@ -1,4 +1,4 @@
-package org.gradle
+package com.garyclayburg.docker
 
 import org.gradle.api.Project
 import org.gradle.testfixtures.ProjectBuilder
@@ -15,7 +15,7 @@ import static org.junit.Assert.assertNotNull
 class DockerPluginTest {
 
     @Test
-    public void pluginloads() throws Exception {
+    void pluginloads() throws Exception {
         Project project = ProjectBuilder.builder().build()
         project.pluginManager.apply('org.springframework.boot') //bootRepackage must be loaded first
         project.pluginManager.apply('com.garyclayburg.dockerprepare')

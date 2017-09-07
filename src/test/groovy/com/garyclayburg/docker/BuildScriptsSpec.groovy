@@ -1,6 +1,7 @@
-package org.gradle
+package com.garyclayburg.docker
 
 import groovy.util.logging.Slf4j
+import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.UnexpectedBuildFailure
 import org.gradle.testkit.runner.internal.FeatureCheckBuildResult
@@ -40,45 +41,6 @@ class DockerplugindemoApplication {
 """
     }
 
-    def "hello world task prints hello world"() {
-        given:
-        buildFile << """
-        plugins {
-            id 'org.gradle.sample.helloworld'
-        }
-    """
-
-        when:
-        def result = GradleRunner.create()
-                .withProjectDir(testProjectDir.root)
-                .withArguments('helloWorld')
-                .withPluginClasspath()
-                .build()
-
-        then:
-        result.output.contains('yo world!')
-        result.task(":helloWorld").outcome == SUCCESS
-    }
-
-    def 'hello world task prints hello'(){
-        given:
-        buildFile << """
-task helloWorld{
-  doLast{
-    println 'Hello world!'
-  }
-}
-"""
-        when:
-        FeatureCheckBuildResult result = GradleRunner.create()
-        .withProjectDir(testProjectDir.root)
-        .withArguments('helloWorld')
-        .build()
-
-        then:
-        result.output.contains('Hello')
-        result.task(':helloWorld').outcome == SUCCESS
-    }
 
     def 'bootRepackage by itself works'(){
         given:
@@ -119,7 +81,7 @@ dependencies {
 }
 """
         when:
-        FeatureCheckBuildResult result = GradleRunner.create()
+        BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
                 .withArguments('build','--stacktrace')
                 .build()
@@ -162,7 +124,7 @@ dependencies {
 }
 """
         when:
-        FeatureCheckBuildResult result = GradleRunner.create()
+        BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
                 .withArguments('dockerPrepare','--stacktrace','--info')
                 .withPluginClasspath()
@@ -201,7 +163,7 @@ dependencies {
 }
 """
         when:
-        FeatureCheckBuildResult result = GradleRunner.create()
+        BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
                 .withArguments('dockerPrepare','--stacktrace')
                 .withPluginClasspath()
@@ -241,14 +203,13 @@ dependencies {
 }
 """
         when:
-        FeatureCheckBuildResult result = GradleRunner.create()
+        GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
                 .withArguments('dockerPrepare','--info')
                 .withPluginClasspath()
                 .build()
 
         then:
-//        result.output.contains('SUCCESSFUL')
         thrown UnexpectedBuildFailure
     }
 
