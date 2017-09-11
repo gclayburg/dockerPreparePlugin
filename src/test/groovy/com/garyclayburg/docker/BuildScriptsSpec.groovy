@@ -127,7 +127,7 @@ repositories {
 	mavenCentral()
 }
 
-dockerlayer{
+dockerprepare{
   	dockerBuildDirectory "\${project.buildDir}/docker"
 	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
 
@@ -151,10 +151,10 @@ dependencies {
         then:
         result.output.contains('SUCCESSFUL')
         result.task(':dockerPrepare').outcome == SUCCESS
-        result.task(':copyClasses').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare without explicit dockerlayer{}'() {
+    def 'apply dockerprepare without explicit dockerprepare{}'() {
         given:
         buildFile << """
 plugins {
@@ -183,14 +183,14 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare', '--stacktrace')
+                .withArguments('dockerPrepare', '--stacktrace','--info')
                 .withPluginClasspath()
                 .build()
 
         then:
         result.output.contains('SUCCESSFUL')
         result.task(':dockerPrepare').outcome == SUCCESS
-        result.task(':copyClasses').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
     }
 
     def 'apply dockerprepare without springboot'() {
@@ -210,7 +210,7 @@ repositories {
 	mavenCentral()
 }
 
-dockerlayer{
+dockerprepare{
   	dockerBuildDirectory "\${project.buildDir}/docker"
 	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
 

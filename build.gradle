@@ -34,7 +34,7 @@ dependencies {
 }
 
 group = 'com.garyclayburg'
-version = '0.9'
+version = '0.9.1-SNAPSHOT'
 
 uploadArchives {
     repositories {

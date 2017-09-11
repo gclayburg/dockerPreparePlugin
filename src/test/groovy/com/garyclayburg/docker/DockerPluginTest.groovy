@@ -37,6 +37,6 @@ class DockerPluginTest {
         Project project = ProjectBuilder.builder().build()
         project.pluginManager.apply('org.springframework.boot') //bootRepackage must be loaded first
         project.pluginManager.apply('com.garyclayburg.dockerprepare')
-        assertNotNull(project.tasks.copyClasses)
+        assertNotNull(project.tasks.expandBootJar)
     }
 }

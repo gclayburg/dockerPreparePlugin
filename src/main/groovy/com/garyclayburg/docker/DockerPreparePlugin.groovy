@@ -22,11 +22,8 @@ import groovy.util.logging.Slf4j
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.UnknownTaskException
+import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Copy
-
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
 
 /**
  * <br><br>
@@ -35,14 +32,14 @@ import java.nio.file.StandardCopyOption
  * @author Gary Clayburg
  */
 @Slf4j
-class DockerLayerPlugin implements Plugin<Project> {
+class DockerPreparePlugin implements Plugin<Project> {
 
     @Override
     void apply(Project project) {
         project.getLogger().info ' apply com.garyclayburg.dockerprepare'
-        def extension = project.extensions.create("dockerlayer", DockerLayerPluginExtension, project)
-        extension.dockerSrcDirectory = "${project.rootDir}/src/main/docker"
-        extension.dockerBuildDirectory = "${project.buildDir}/docker"
+        def settings = project.extensions.create("dockerprepare",DockerPreparePluginExt,project)
+        settings.dockerSrcDirectory = "${project.rootDir}/src/main/docker"
+        settings.dockerBuildDirectory = "${project.buildDir}/docker"
         boolean prereqsmet = true
         def bootRepackageTask
         try {
@@ -54,31 +51,34 @@ class DockerLayerPlugin implements Plugin<Project> {
         if (prereqsmet) {
             def jarTask = project.tasks.getByName('jar')
             project.task('copyDocker', type: Copy) {
-                from extension.dockerSrcDirectoryProvider
-                into extension.dockerBuildDirectoryProvider
+                from { project.dockerprepare.dockerSrcDirectory} //lazy evaluation via closure so that dockerprepare settings can be overridden in build.properties
+                into { project.dockerprepare.dockerBuildDirectory }
                 doLast {
-                    getLogger().info("Copy docker file(s) from ${extension.dockerSrcDirectoryProvider.get()} to:\n${extension.dockerBuildDirectoryProvider.get()}")
+                    def mysrc = { project.dockerprepare.dockerSrcDirectory}
+                    def myto = { project.dockerprepare.dockerBuildDirectory }
+                    getLogger().info("Copying docker file(s) from ${mysrc()} to:\n${myto()}")
                 }
             }.onlyIf {
-                def file = project.file(extension.dockerSrcDirectoryProvider.get())
+                def file = project.file(settings.dockerSrcDirectory)
                 (file.isDirectory() && (file.list().length != 0))
             }
             project.task('copyDefaultDockerfile') {
+                outputs.files {[settings.dockerBuildDirectory +"/Dockerfile",settings.dockerBuildDirectory +"/bootrunner.sh"]}
                 doLast {
                     def myjar = project.buildscript.configurations.classpath.find {
                         it.name.contains 'dockerPreparePlugin'
                     }
                     if (myjar != null) {
-                        getLogger().info "Copy opinionated default Dockerfile and bootrunner.sh into ${extension.dockerBuildDirectoryProvider.get()}"
+                        getLogger().info "Copy opinionated default Dockerfile and bootrunner.sh into ${settings.dockerBuildDirectory}"
                         project.copy {
                             from project.resources.text.fromArchiveEntry(myjar,
                                     '/defaultdocker/Dockerfile').asFile()
-                            into extension.dockerBuildDirectoryProvider
+                            into settings.dockerBuildDirectory
                         }
                         project.copy {
                             from project.resources.text.fromArchiveEntry(myjar,
                                     '/defaultdocker/bootrunner.sh').asFile()
-                            into extension.dockerBuildDirectoryProvider
+                            into settings.dockerBuildDirectory
                         }
                     } else {
                         getLogger().error('Cannot copy opinionated default Dockerfile and bootrunner.sh')
@@ -88,41 +88,35 @@ class DockerLayerPlugin implements Plugin<Project> {
                     }
                 }
             }.onlyIf {
-                def file = project.file(extension.dockerSrcDirectoryProvider.get())
+                def file = project.file(settings.dockerSrcDirectory)
                 (!file.isDirectory() || (file.list().length == 0))
             }
-            project.task('copyClasses') {
+            project.task('expandBootJar') {
+                inputs.file {jarTask.archivePath}
+                outputs.dir {settings.dockerBuildDependenciesDirectory}
                 doLast {
-                    getLogger().info("populating classes layer ${extension.dockerBuildClassesDirectoryProvider.get()} from \n${jarTask.archivePath}")
+                    getLogger().info("populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
                     //in some projects, jar.archivePath may change after bootRepackage is executed.
                     // It might be one value during configure, but another after bootRepackage.
-                    // We use the project.copy method instead of the Copy task so our task can
-                    // get the correct value during the execute phase
                     project.copy {
                         from project.zipTree(jarTask.archivePath)
-                        into extension.dockerBuildClassesDirectoryProvider
+                        into settings.dockerBuildDependenciesDirectory
+                        exclude "/BOOT-INF/classes/**"
+                        exclude "/META-INF/**"
+                    }
+                    getLogger().info("populating classes layer ${settings.dockerBuildClassesDirectory} from \n${jarTask.archivePath}")
+                    project.copy {
+                        from project.zipTree(jarTask.archivePath)
+                        into settings.dockerBuildClassesDirectory
                         include "/BOOT-INF/classes/**"
                         include "/META-INF/**"
                     }
                 }
             }.setDependsOn([bootRepackageTask])
-            project.task('copyDependencies') {
-                doLast {
-                    getLogger().info("populating dependencies layer ${extension.dockerBuildDependenciesDirectoryProvider.get()} from \n${jarTask.archivePath}")
-                    //in some projects, jar.archivePath may change after bootRepackage is executed.
-                    // It might be one value during configure, but another after bootRepackage.
-                    // We use the project.copy method instead of the Copy task so our task can
-                    // get the correct value during the execute phase
-                    project.copy {
-                        from project.zipTree(jarTask.archivePath)
-                        into extension.dockerBuildDependenciesDirectoryProvider
-                        exclude "/BOOT-INF/classes/**"
-                        exclude "/META-INF/**"
-                    }
-                }
-            }.setDependsOn([bootRepackageTask])
             def dockerPrep = project.task('dockerPrepare')
-            dockerPrep.dependsOn('copyClasses', 'copyDependencies', 'copyDocker', 'copyDefaultDockerfile')
+            dockerPrep.dependsOn('expandBootJar', 'copyDocker', 'copyDefaultDockerfile')
+
+            project.getTasks().getByName(BasePlugin.ASSEMBLE_TASK_NAME).dependsOn('dockerPrepare')
         }
     }
 }
