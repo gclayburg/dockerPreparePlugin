@@ -24,6 +24,7 @@ import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.UnexpectedBuildFailure
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
+import org.junit.rules.TestName
 import spock.lang.Specification
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
@@ -40,8 +41,18 @@ class BuildScriptsSpec extends Specification {
     final TemporaryFolder testProjectDir = new TemporaryFolder()
     File buildFile
 
+    @Rule TestName name = new TestName()
+
+    def cleanup() {
+        def root = testProjectDir.getRoot()
+        println "build dir after test: ${name.methodName}"
+        root.traverse {
+            println "builddir ${it}"
+        }
+    }
+
     def "setup"() {
-        log.info("setup spec")
+        println "running test: ${name.methodName}"
         buildFile = testProjectDir.newFile('build.gradle')
         def srcdir = testProjectDir.newFolder('src', 'main', 'groovy', 'dummypackage')
         File mainclass = new File(srcdir, 'SimpleMain.groovy')
@@ -144,13 +155,13 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare', '--stacktrace', '--info')
+                .withArguments('dockerLayerPrepare', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
 
         then:
         result.output.contains('SUCCESSFUL')
-        result.task(':dockerPrepare').outcome == SUCCESS
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
@@ -183,13 +194,109 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace','--info')
                 .withPluginClasspath()
                 .build()
 
         then:
         result.output.contains('SUCCESSFUL')
-        result.task(':dockerPrepare').outcome == SUCCESS
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+    }
+
+    def 'apply dockerprepare with com.palantir.docker'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+    id 'com.palantir.docker' version '0.13.0'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+docker {
+  name 'hellodock'
+  tags 'v123'
+  dockerfile file("\${dockerprepare.dockerBuildDirectory}/Dockerfile")
+  dependsOn build
+  files "\${dockerprepare.dockerBuildDirectory}"
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace','--info')
+                .withPluginClasspath()
+                .build()
+        println result.getOutput()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+    }
+
+    def 'apply dockerprepare with DockerBuildImage'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+    id "com.bmuschko.docker-remote-api" version "3.1.0"
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+
+//task buildImage(type: DockerBuildImage, dependsOn: 'dockerLayerPrepare') {
+//    description = "build and tag a Docker Image"
+//    inputDir = project.file(dockerprepare.dockerBuildDirectory)
+//    tags = [ 'ignoreme:latest']
+//}
+
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace','--info')
+                .withPluginClasspath()
+                .build()
+        println result.getOutput()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
@@ -223,7 +330,7 @@ dependencies {
         when:
         GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('dockerPrepare', '--info')
+                .withArguments('dockerLayerPrepare', '--info')
                 .withPluginClasspath()
                 .build()
 
