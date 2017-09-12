@@ -19,6 +19,7 @@
 package com.garyclayburg.docker
 
 import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.UnexpectedBuildFailure
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
@@ -33,7 +34,7 @@ class BuildLogicFunctionalTest extends Specification {
         buildFile = testProjectDir.newFile('build.gradle')
     }
 
-    def "dockerprepare plugin loads"() {
+    def "dockerprepare plugin loads with bootRepackage dependency error"() {
         given:
         buildFile << """
             plugins {
@@ -42,13 +43,13 @@ class BuildLogicFunctionalTest extends Specification {
         """
 
         when:
-        def result = GradleRunner.create()
+        GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
                 .withArguments('build')
                 .withPluginClasspath()
                 .build()
 
         then:
-        result.output.contains('SUCCESSFUL')
+        thrown UnexpectedBuildFailure
     }
 }

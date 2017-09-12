@@ -41,87 +41,90 @@ class DockerPreparePlugin implements Plugin<Project> {
         def settings = project.extensions.create("dockerprepare", DockerPreparePluginExt, project)
         settings.dockerSrcDirectory = "${project.rootDir}/src/main/docker"
         settings.dockerBuildDirectory = "${project.buildDir}/docker"
-        boolean prereqsmet = true
         def bootRepackageTask
-        try {
-            bootRepackageTask = project.tasks.getByName('bootRepackage')
-        } catch (UnknownTaskException ute) {
-            project.getLogger().error('\'bootRepackage\' task does not exist so there is nothing to do.  Is spring boot installed correctly?', ute)
-            prereqsmet = false
-        }
-        if (prereqsmet) {
-            def jarTask = project.tasks.getByName('jar')
-            project.task('copyDocker', type: Copy) {
-                from { project.dockerprepare.dockerSrcDirectory }
-                //lazy evaluation via closure so that dockerprepare settings can be overridden in build.properties
-                into { project.dockerprepare.dockerBuildDirectory }
-                doLast {
-                    def mysrc = { project.dockerprepare.dockerSrcDirectory }
-                    def myto = { project.dockerprepare.dockerBuildDirectory }
-                    getLogger().info("Copying docker file(s) from ${mysrc()} to:\n${myto()}")
-                }
-            }.onlyIf {
-                def file = project.file(settings.dockerSrcDirectory)
-                (file.isDirectory() && (file.list().length != 0))
+        project.afterEvaluate { afterevalproject ->
+            //add expandBootJar task and bootRepackage dependencies after other plugins are evaluated
+            //we depend on the 'jar' task from java plugin and 'bootRepackage' from spring boot gradle plugin
+            try {
+                bootRepackageTask = afterevalproject.tasks.getByName('bootRepackage')
+            } catch (UnknownTaskException ute) {
+                project.getLogger().error('com.garyclayburg.dockerprepare gradle plugin requires Spring Boot plugin, however \'bootRepackage\' task does not exist.  Is Spring Boot installed correctly?')
+                throw ute
             }
-            project.task('copyDefaultDockerfile') {
-                outputs.files {
-                    [settings.dockerBuildDirectory + "/Dockerfile", settings.dockerBuildDirectory + "/bootrunner.sh"]
-                }
-                doLast {
-                    def dockerstream = this.getClass().getResourceAsStream('/defaultdocker/Dockerfile')
-                    def bootrunnerstream = this.getClass().getResourceAsStream('/defaultdocker/bootrunner.sh')
-                    if (dockerstream != null && bootrunnerstream != null) {
-                        getLogger().info "Copy opinionated default Dockerfile and bootrunner.sh into ${settings.dockerBuildDirectory} "
-                        project.mkdir(settings.dockerBuildDirectory)
-                        project.file(settings.dockerBuildDirectory + '/Dockerfile') << dockerstream.text
-                        project.file(settings.dockerBuildDirectory + '/bootrunner.sh') << bootrunnerstream.text
-                        /* this copy from stream technique is consistent whether we are either:
-                          1. running as normal where Dockerfile is found inside a jar file on the classpath
-                          2. testing via gradle test kit where Dockerfile is a normal file on the classpath
-                         */
-                    } else {
-                        getLogger().error('Cannot copy opinionated default Dockerfile and bootrunner.sh')
-                        project.buildscript.configurations.classpath.findAll {
-                            getLogger().error "classpath entry ${it.path}"
-                        }
-                        printDir(project.buildDir.getPath(), getLogger())
-                    }
-                }
-            }.onlyIf {
-                def file = project.file(settings.dockerSrcDirectory)
-                (!file.isDirectory() || (file.list().length == 0))
-            }
-            project.task('expandBootJar') {
+
+            def jarTask = afterevalproject.tasks.getByName('jar')
+            def expandBootJar = afterevalproject.task('expandBootJar') {
                 inputs.file { jarTask.archivePath }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
                     getLogger().info("populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
                     //in some projects, jar.archivePath may change after bootRepackage is executed.
                     // It might be one value during configure, but another after bootRepackage.
-                    project.copy {
-                        from project.zipTree(jarTask.archivePath)
+                    afterevalproject.copy {
+                        from afterevalproject.zipTree(jarTask.archivePath)
                         into settings.dockerBuildDependenciesDirectory
                         exclude "/BOOT-INF/classes/**"
                         exclude "/META-INF/**"
                     }
                     getLogger().info("populating classes layer ${settings.dockerBuildClassesDirectory} from \n${jarTask.archivePath}")
-                    project.copy {
-                        from project.zipTree(jarTask.archivePath)
+                    afterevalproject.copy {
+                        from afterevalproject.zipTree(jarTask.archivePath)
                         into settings.dockerBuildClassesDirectory
                         include "/BOOT-INF/classes/**"
                         include "/META-INF/**"
                     }
                 }
-            }.setDependsOn([bootRepackageTask])
+            }
+            expandBootJar.setDependsOn([bootRepackageTask])
             def dockerPrep = project.task('dockerLayerPrepare')
             dockerPrep.dependsOn('expandBootJar', 'copyDocker', 'copyDefaultDockerfile')
-
-            project.getTasks().getByName(BasePlugin.ASSEMBLE_TASK_NAME).dependsOn('dockerLayerPrepare')
+            afterevalproject.getTasks().getByName(BasePlugin.ASSEMBLE_TASK_NAME).dependsOn('dockerLayerPrepare')
         }
+        project.task('copyDocker', type: Copy) {
+            from { project.dockerprepare.dockerSrcDirectory }
+            //lazy evaluation via closure so that dockerprepare settings can be overridden in build.properties
+            into { project.dockerprepare.dockerBuildDirectory }
+            doLast {
+                def mysrc = { project.dockerprepare.dockerSrcDirectory }
+                def myto = { project.dockerprepare.dockerBuildDirectory }
+                getLogger().info("Copying docker file(s) from ${mysrc()} to:\n${myto()}")
+            }
+        }.onlyIf {
+            def file = project.file(settings.dockerSrcDirectory)
+            (file.isDirectory() && (file.list().length != 0))
+        }
+        project.task('copyDefaultDockerfile') {
+            outputs.files {
+                [settings.dockerBuildDirectory + "/Dockerfile", settings.dockerBuildDirectory + "/bootrunner.sh"]
+            }
+            doLast {
+                def dockerstream = this.getClass().getResourceAsStream('/defaultdocker/Dockerfile')
+                def bootrunnerstream = this.getClass().getResourceAsStream('/defaultdocker/bootrunner.sh')
+                if (dockerstream != null && bootrunnerstream != null) {
+                    getLogger().info "Copy opinionated default Dockerfile and bootrunner.sh into ${settings.dockerBuildDirectory} "
+                    project.mkdir(settings.dockerBuildDirectory)
+                    project.file(settings.dockerBuildDirectory + '/Dockerfile') << dockerstream.text
+                    project.file(settings.dockerBuildDirectory + '/bootrunner.sh') << bootrunnerstream.text
+                    /* this copy from stream technique is consistent whether we are either:
+                      1. running as normal where Dockerfile is found inside a jar file on the classpath
+                      2. testing via gradle test kit where Dockerfile is a normal file on the classpath
+                     */
+                } else {
+                    getLogger().error('Cannot copy opinionated default Dockerfile and bootrunner.sh')
+                    project.buildscript.configurations.classpath.findAll {
+                        getLogger().error "classpath entry ${it.path}"
+                    }
+                    printDir(project.buildDir.getPath(), getLogger())
+                }
+            }
+        }.onlyIf {
+            def file = project.file(settings.dockerSrcDirectory)
+            (!file.isDirectory() || (file.list().length == 0))
+        }
+
     }
 
-    private void printDir(String path, Logger logger) {
+    private static void printDir(String path, Logger logger) {
         File rootDir = new File(path)
         if (rootDir.exists() && rootDir.isDirectory()) {
             rootDir.traverse {

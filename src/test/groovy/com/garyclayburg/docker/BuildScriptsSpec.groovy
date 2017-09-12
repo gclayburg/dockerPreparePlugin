@@ -165,7 +165,45 @@ dependencies {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare without explicit dockerprepare{}'() {
+    def 'apply dockerprepare after spring boot'() {
+        given:
+        buildFile << """
+plugins {
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+    id 'com.garyclayburg.dockerprepare'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace','--info')
+                .withPluginClasspath()
+                .build()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+    }
+    def 'apply dockerprepare before spring boot'() {
         given:
         buildFile << """
 plugins {
@@ -198,6 +236,45 @@ dependencies {
                 .withPluginClasspath()
                 .build()
 
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+    }
+    def 'apply dockerprepare before spring boot and groovy'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+    id 'groovy'
+}
+
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace','--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
         then:
         result.output.contains('SUCCESSFUL')
         result.task(':dockerLayerPrepare').outcome == SUCCESS
