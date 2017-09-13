@@ -10,6 +10,11 @@ buildscript {
 	}
 }
 
+plugins {
+    id 'com.garyclayburg.dockerprepare' version '0.9.2'
+}
+
+
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'org.springframework.boot'
