@@ -1,6 +1,6 @@
 buildscript {
 	ext {
-		springBootVersion = '1.5.6.RELEASE'
+		springBootVersion = '1.5.7.RELEASE'
 	}
 	repositories {
 		mavenCentral()
@@ -11,7 +11,8 @@ buildscript {
 }
 
 plugins {
-    id 'com.garyclayburg.dockerprepare' version '0.9.2'
+    id 'com.garyclayburg.dockerprepare' version '0.9.3'
+	id "com.bmuschko.docker-remote-api" version "3.1.0"
 }
 
 
@@ -26,8 +27,24 @@ repositories {
 	mavenCentral()
 }
 
-
 dependencies {
 	compile('org.springframework.boot:spring-boot-starter-web')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+def dockerImageName = 'myorg/'+project.name
+
+task buildImage(type: com.bmuschko.gradle.docker.tasks.image.DockerBuildImage, dependsOn: 'dockerLayerPrepare') {
+	description = "build and tag a Docker Image"
+	inputDir = project.file(project.dockerprepare.dockerBuildDirectory)
+	tags = [dockerImageName+':latest',dockerImageName+':' +version]
+}
+
+task pushVersion(type: com.bmuschko.gradle.docker.tasks.image.DockerPushImage, dependsOn: buildImage) {
+	description = "docker push <imageName>:<version>"
+	imageName = dockerImageName + ":" + version
+}
+
+task pushLatest(type: com.bmuschko.gradle.docker.tasks.image.DockerPushImage, dependsOn: buildImage) {
+	description = "docker push <imageName>:latest"
+	imageName = dockerImageName + ":latest"
 }

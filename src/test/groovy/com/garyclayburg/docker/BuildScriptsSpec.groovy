@@ -79,10 +79,7 @@ buildscript {
 		springBootVersion = '1.5.6.RELEASE'
 	}
 	repositories {
-		mavenCentral()
-		maven{
-			url uri('/home/gclaybur/dev/repo')
-		}
+		jcenter()
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:1.5.6.RELEASE")
@@ -290,7 +287,6 @@ buildscript {
 	}
 	repositories {
 	    jcenter()
-		mavenCentral()
 		maven { url "https://repo.spring.io/snapshot" }
 		maven { url "https://repo.spring.io/milestone" }
 	}
@@ -303,7 +299,7 @@ plugins {
     id 'com.garyclayburg.dockerprepare'
 }
 
-apply plugin: 'java'
+apply plugin: 'groovy'
 apply plugin: 'eclipse'
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
@@ -320,6 +316,7 @@ repositories {
 
 dependencies {
 	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
 """
