@@ -48,8 +48,12 @@ class DockerPreparePlugin implements Plugin<Project> {
             try {
                 bootRepackageTask = afterevalproject.tasks.getByName('bootRepackage')
             } catch (UnknownTaskException ute) {
-                project.getLogger().error('com.garyclayburg.dockerprepare gradle plugin requires Spring Boot plugin, however \'bootRepackage\' task does not exist.  Is Spring Boot installed correctly?')
-                throw ute
+                try {
+                    bootRepackageTask = afterevalproject.tasks.getByName('bootJar')
+                } catch (UnknownTaskException ute2) {
+                    project.getLogger().error('com.garyclayburg.dockerprepare gradle plugin requires Spring Boot plugin, however \'bootRepackage\' task does not exist.  Is Spring Boot installed correctly?')
+                    throw ute2
+                }
             }
 
             def jarTask = afterevalproject.tasks.getByName('jar')
@@ -78,6 +82,8 @@ class DockerPreparePlugin implements Plugin<Project> {
             expandBootJar.setDependsOn([bootRepackageTask])
             def dockerPrep = project.task('dockerLayerPrepare')
             dockerPrep.dependsOn('expandBootJar', 'copyDocker', 'copyDefaultDockerfile')
+            dockerPrep.setDescription("prepare docker layer-friendly directory from spring boot jar")
+            dockerPrep.setGroup("Docker")
             afterevalproject.getTasks().getByName(BasePlugin.ASSEMBLE_TASK_NAME).dependsOn('dockerLayerPrepare')
         }
         project.task('copyDocker', type: Copy) {

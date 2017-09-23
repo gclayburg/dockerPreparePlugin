@@ -44,6 +44,7 @@ uploadArchives {
     }
 }
 
+//gradlew publishPlugins
 pluginBundle {
     website = 'https://github.com/gclayburg/dockerPreparePlugin'
     vcsUrl = 'https://github.com/gclayburg/dockerPreparePlugin'
