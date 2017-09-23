@@ -1,4 +1,4 @@
-Docker Prepare Gradle Plugin
+# Docker Prepare Gradle Plugin
 
 This is a gradle plugin that you can use in your spring boot project to prepare the spring boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the spring boot jar file to a `Dockerfile`.  This plugin will:
 
@@ -42,12 +42,9 @@ Lets build a hello world style app using this plugin.
 
 1. create a new spring boot app from [http://start.spring.io]
 2. select `Gradle Project` from the drop down menu at the top of the page
-3. Add the `Web` dependency.  You can add other dependencies if you like, but you don't need to.  The screen should look like this:
-<image>
-
+3. Add the `Web` dependency.  You can add other dependencies if you like, but you don't need to.  
 4. Click the "Generate Project" button and download the created zip file.
-5. unzip this file
-6. build and run the project - 
+5. unzip, build and run:
 
 ```bash
 $ ./gradlew build
@@ -72,9 +69,10 @@ Notice the output generated when we stopped the app.  Our ctrl-c on the terminal
 
 This is just a simple spring boot application that runs an embedded Tomcat server with our simple app along with all its dependencies.  Everything we need is in this one jar file - well everything except the JVM to run it and supporting OS libraries.  Docker to the rescue!  
 
+## adding the preparedocker plugin
 What we want to do now is take this app and bundle it inside a docker container with the JVM and everything the JVM needs.  
 
-1. Add this to your build.gradle file.  Or check out the example at [sample/demo](sample/demo)
+1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
   id "com.garyclayburg.dockerprepare" version "0.9.3"
@@ -92,7 +90,7 @@ bootrunner.sh  classesLayer/  dependenciesLayer/  Dockerfile
 
 These files were created by this dockerprepare plugin.  Lets take a look at these files:
 
-### [Dockerfile](src/main/docker/Dockerfile)
+### [Dockerfile](src/main/resources/defaultdocker/Dockerfile)
 ```dockerfile
 FROM openjdk:8u131-jre-alpine
 # we choose this base image because:
@@ -127,9 +125,9 @@ ENV JAVA_OPTS=""
 ENTRYPOINT ["./bootrunner.sh"]
 ```
 
-There are two ADD commands in here.  This plugin split the Spring boot jar file into two directories - one for your applicaiton code classes and the other for dependent jar files.  This way, we get all the benefits of a spring boot runnable jar file and yet we can still use the docker layer cache
+There are two ADD commands in here.  This plugin split the Spring boot jar file into two directories - one for your applicaiton code classes and the other for dependent jar files.  This way, we get all the benefits of a spring boot runnable jar file and yet we can still use the docker layer cache.
 
-### [bootrunner.sh](src/main/docker/bootrunner.sh)
+### [bootrunner.sh](src/main/resources/defaultdocker/bootrunner.sh)
 ```bash
 #!/bin/sh
 date_echo(){
@@ -160,7 +158,7 @@ $ cd build/docker
 $ docker build -t myorg/demo:latest .
 ```
 
-#Build Docker Image with Gradle
+# Build Docker Image with Gradle
 
 If you'd rather build the docker image automatically in a gradle build there are several gradle plugins that can do this.  An example of doing this with the `com.bmuschko.docker-remote-api` is shown in [sample/demo/build.gradle](sample/demo/build.gradle).
 
@@ -197,11 +195,11 @@ $ docker run -p8080:8080 --env JAVA_OPTS='-Xmx500m' myorg/demo:latest
 
 This plugin inserts a few gradle tasks into the normal gradle lifecycle when `com.garyclayburg.dockerprepare` is applied.  These tasks run after the spring boot 'bootRepackage' task and before `assemble`.  
 
-Gradle lifecycle when using spring boot 1.x:
+### Gradle lifecycle when using spring boot 1.x:
 
 `classes` --> `jar` --> `bootRepackage` -->  **`dockerLayerPrepare`** --> `assemble` --> `build`
 
-Gradle lifecycle when using spring boot 2.0+:
+### Gradle lifecycle when using spring boot 2.0+:
 
 `classes` --> `jar` --> `bootJar` -->  **`dockerLayerPrepare`** --> `assemble` --> `build`
 
@@ -209,6 +207,7 @@ Gradle lifecycle when using spring boot 2.0+:
 This is why our gradle `buildImage` task dependsOn `dockerLayerPrepare`:
 
 ```groovy
+def dockerImageName = 'myorg/'+project.name
 task buildImage(type: com.bmuschko.gradle.docker.tasks.image.DockerBuildImage, dependsOn: 'dockerLayerPrepare') {
 	description = "build and tag a Docker Image"
 	inputDir = project.file(project.dockerprepare.dockerBuildDirectory)
