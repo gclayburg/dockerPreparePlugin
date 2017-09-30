@@ -1,8 +1,6 @@
 # Docker Prepare Gradle Plugin
 
-This is a gradle plugin that you can use in your spring boot project to prepare the spring boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the spring boot jar file to a `Dockerfile`.  This plugin will:
-
-1. Create an opinionated Dockerfile that
+This is a gradle plugin that you can use in your spring boot project to prepare the spring boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the spring boot jar file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
   * uses the official [openjdk jre-alpine image](https://hub.docker.com/_/openjdk/) as a base
   * runs your app as a non-root user
   * splits your spring boot jar into 2 layers for compact builds - one for dependencies and one for classes
@@ -10,18 +8,21 @@ This is a gradle plugin that you can use in your spring boot project to prepare 
   * runs the application using a script that allows for your app to receive OS signals when running inside the container - your app will shutdown cleanly
   * passes along any runtime arguments to your application 
 
-Note: this plugin merely populates a `build/docker` directory.  It does not create docker images or use the docker API in any way.  There are other gradle plugins for that.  [See below](#build-docker-image-with-gradle).
+Note: this plugin merely populates a `build/docker` staging directory.  It does not create docker images or use the docker API in any way.  There are other gradle plugins for that.  [See below](#build-docker-image-with-gradle).
+
+This plugin is really meant for when you have a spring boot application that you want to run independently in a docker container.  By default, the only process inside the container is the JVM that runs your application.  In this case, we can cleanly pass OS signals to your application.  More complex scenarios are possible [Customizing](#customizing)
 
 # Using
-To use this, add this snippet to your build.gradle file:
+To use this, add this snippet to your build.gradle file or use the example at [sample/demo](sample/demo)
 
 ```groovy
 plugins {
   id "com.garyclayburg.dockerprepare" version "0.9.3"
 }
 ```
+The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
 
-And build your app:
+Build your app:
 
 ```bash
 $ ./gradlew build
@@ -29,7 +30,7 @@ $ ls build/docker
 bootrunner.sh  classesLayer/  dependenciesLayer/  Dockerfile
 ```
 
-To create your docker image by hand with these files:
+Create your docker image by hand with these files:
 
 ```bash
 $ cd build/docker
@@ -65,7 +66,7 @@ Stop it with ctrl-c.
 2017-09-18 18:09:14.437  INFO 14774 --- [       Thread-3] o.s.j.e.a.AnnotationMBeanExporter        : Unregistering JMX-exposed beans on shutdown
 ```
 
-Notice the output generated when we stopped the app.  Our ctrl-c on the terminal sent a SIGINT to our application which was able to trap this and [perform some standard spring boot cleanup action](https://docs.spring.io/spring-boot/docs/current/reference/html/boot-features-spring-application.html#boot-features-application-exit).  In the default case here, a JMX bean cleaned up itself.  
+Notice the output generated when we stopped the app.  Our ctrl-c on the terminal sent a SIGINT to our application which was able to trap this and [perform some standard spring boot cleanup action](https://docs.spring.io/spring-boot/docs/current/reference/html/boot-features-spring-application.html#boot-features-application-exit).  In the default case here, a JMX bean cleaned up after itself.  
 
 This is just a simple spring boot application that runs an embedded Tomcat server with our simple app along with all its dependencies.  Everything we need is in this one jar file - well everything except the JVM to run it and supporting OS libraries.  Docker to the rescue!  
 
@@ -125,7 +126,7 @@ ENV JAVA_OPTS=""
 ENTRYPOINT ["./bootrunner.sh"]
 ```
 
-There are two ADD commands in here.  This plugin split the Spring boot jar file into two directories - one for your applicaiton code classes and the other for dependent jar files.  This way, we get all the benefits of a spring boot runnable jar file and yet we can still use the docker layer cache.
+There are two ADD commands in here.  This plugin split the Spring boot jar file into two directories - one for your application code classes and the other for dependent jar files.  This way, we get all the benefits of a spring boot runnable jar file and yet we can still use the docker layer cache.
 
 ### [bootrunner.sh](src/main/resources/defaultdocker/bootrunner.sh)
 ```bash
@@ -157,6 +158,47 @@ If you like, you can create a docker image manually from the files in this direc
 $ cd build/docker
 $ docker build -t myorg/demo:latest .
 ```
+
+# Why are docker layers important?
+
+An alternative way to build a docker image from a Spring Boot jar file is to simply take the generated jar file and run it directly inside the docker container.  Your `Dockerfile` will have a line that looks something like this:
+
+```dockerfile
+ADD build/libs/*.jar app.jar
+```
+
+Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a spring boot self contained jar file in docker.  However, you can easily run into performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  Most of the builds and deploys only involve changes to your project code, yet each build has everything bundled into this one jar file.  In our simple demo case, the jar file is about 14 MB.  This can easily grow into an app that is 50,60,70MB or even bigger.  This can become taxing in docker environments where each time you build the docker image, the old layers stick around on the filesystem.  When the old layer is 70+ MB, it doesn't take too many of these to create storage issues.  The same issues exist on your docker repository and any server that needs to pull your docker image.  You are also likely to run into network bandwidth issues, especially when you need push your image to a remote repository.  
+
+So lets run `docker history` on the demo app we just created
+
+```bash
+$ docker history myorg/demo:latest
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+01f75f34aa9d        12 seconds ago      /bin/sh -c #(nop)  ENTRYPOINT ["./bootrunn...   0B                  
+300f2ff8091f        13 seconds ago      /bin/sh -c #(nop)  ENV JAVA_OPTS=               0B                  
+8d8ed731c719        13 seconds ago      /bin/sh -c #(nop)  EXPOSE 8080/tcp              0B                  
+64ec2ea3268a        13 seconds ago      /bin/sh -c #(nop)  VOLUME [/tmp]                0B                  
+697d0320b75d        11 days ago         /bin/sh -c #(nop) ADD dir:db6fbd351c52ded7...   1.52kB              
+64a885e6caef        11 days ago         /bin/sh -c #(nop) ADD dir:71bd5358cd827da6...   14.5MB              
+4a57e6101ff4        2 weeks ago         /bin/sh -c #(nop)  USER [springboot]            0B                  
+1fee1d234dc7        2 weeks ago         /bin/sh -c #(nop) WORKDIR /home/springboot      0B                  
+da4ea7a7eb20        2 weeks ago         /bin/sh -c chmod 755 /home/springboot/boot...   982B                
+9dd4dab55288        2 weeks ago         /bin/sh -c #(nop) COPY file:abb8a517776eb8...   982B                
+3e1faa3289e4        4 weeks ago         /bin/sh -c adduser -D -s /bin/sh springboot     4.83kB              
+c4f9d77cd2a1        3 months ago        /bin/sh -c set -x  && apk add --no-cache  ...   77.5MB              
+<missing>           3 months ago        /bin/sh -c #(nop)  ENV JAVA_ALPINE_VERSION...   0B                  
+<missing>           3 months ago        /bin/sh -c #(nop)  ENV JAVA_VERSION=8u131       0B                  
+<missing>           3 months ago        /bin/sh -c #(nop)  ENV PATH=/usr/local/sbi...   0B                  
+<missing>           3 months ago        /bin/sh -c #(nop)  ENV JAVA_HOME=/usr/lib/...   0B                  
+<missing>           3 months ago        /bin/sh -c {   echo '#!/bin/sh';   echo 's...   87B                 
+<missing>           3 months ago        /bin/sh -c #(nop)  ENV LANG=C.UTF-8             0B                  
+<missing>           3 months ago        /bin/sh -c #(nop)  CMD ["/bin/sh"]              0B                  
+<missing>           3 months ago        /bin/sh -c #(nop) ADD file:4583e12bf5caec4...   3.97MB    
+```
+
+This shows us the layers and sizes in our app.  Notice the 5th and 6th lines with `ADD` commands.  The top one is our application classes layer at 1KB and the bottom one is our dependencies 14MB.  Heuristically, Most builds will not involve changes to the dependencies so when you perform a docker build, docker can reuse this image layer from the [cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache).
+
+In my testing, a docker push went from taking more than 3 minutes to just 5 seconds when the cache is used.
 
 # Build Docker Image with Gradle
 
@@ -221,7 +263,7 @@ Notice also that we are specifying an `inputDir` for `buildImage`.  `project.doc
 
 ### Use your own Dockerfile
 
-If you'd rather use your own `Dockerfile`, just copy it and any other static files you need in your docker image into `src/main/docker`.  You'll need to create this directory if it does not exist in your project.  If this plugin finds any files in this directory, it will copy those into the dockerBuildDirectory instead of the default `Dockerfile` and `bootrunner.sh`.  The plugin will still create the docker layer directories so you might want to use the default [Dockerfile](src/main/docker/Dockerfile) as a guide.
+If you'd rather use your own `Dockerfile`, just copy it and any other static files you need in your docker image into `src/main/docker`.  You'll need to create this directory if it does not exist in your project.  If this plugin finds any files in this directory, it will copy those into the dockerBuildDirectory instead of the default `Dockerfile` and `bootrunner.sh`.  The plugin will still create the docker layer directories so you might want to use the default [Dockerfile](src/main/resources/defaultdocker/Dockerfile) as a guide.
 
 ### Use a custom location for Dockerfile
 
@@ -233,3 +275,7 @@ dockerprepare{
 	dockerSrcDirectory "${project.rootDir}/mydockersrc"
 }
 ```
+
+# Limitations
+
+This plugin only works with Spring boot jar files.  War file support is planned.
