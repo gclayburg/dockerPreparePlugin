@@ -1,6 +1,6 @@
 # Docker Prepare Gradle Plugin
 
-This is a gradle plugin that you can use in your spring boot project to prepare the spring boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the spring boot jar file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
+This is a gradle plugin that you can use in your [Spring Boot](https://projects.spring.io/spring-boot/) project to prepare the spring boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the spring boot jar file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
   * uses the official [openjdk jre-alpine image](https://hub.docker.com/_/openjdk/) as a base
   * runs your app as a non-root user
   * splits your spring boot jar into 2 layers for compact builds - one for dependencies and one for classes
@@ -36,6 +36,8 @@ Create your docker image by hand with these files:
 $ cd build/docker
 $ docker build -t demoapp:latest .
 ```
+
+Thats it!  You now have a efficient, streamlined docker image that you can run.  The next build you perform will be much faster since it uses the [docker cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) as much as possible. 
 
 # Quickstart with a new demo app
 
@@ -161,13 +163,15 @@ $ docker build -t myorg/demo:latest .
 
 # Why are docker layers important?
 
-An alternative way to build a docker image from a Spring Boot jar file is to simply take the generated jar file and run it directly inside the docker container.  Your `Dockerfile` will have a line that looks something like this:
+An alternative way to build a docker image from a Spring Boot jar file is to simply take the generated spring boot jar file and run it directly inside the docker container.  Your `Dockerfile` will have a line that looks something like this:
 
 ```dockerfile
 ADD build/libs/*.jar app.jar
 ```
 
-Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a spring boot self contained jar file in docker.  However, you can easily run into performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  Most of the builds and deploys only involve changes to your project code, yet each build has everything bundled into this one jar file.  In our simple demo case, the jar file is about 14 MB.  This can easily grow into an app that is 50,60,70MB or even bigger.  This can become taxing in docker environments where each time you build the docker image, the old layers stick around on the filesystem.  When the old layer is 70+ MB, it doesn't take too many of these to create storage issues.  The same issues exist on your docker repository and any server that needs to pull your docker image.  You are also likely to run into network bandwidth issues, especially when you need push your image to a remote repository.  
+Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a spring boot self contained jar file in docker.  However, you can easily run into performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  
+
+Most of the builds and deploys only involve changes to your project code, yet each build has everything bundled into this one jar file.  In our simple demo case, the jar file is about 14 MB.  This can easily grow into an app that is 50,60,70MB or even bigger.  This can become taxing in docker environments where each time you build the docker image, the old layers stick around on the filesystem.  When the old layer is 70+ MB, it doesn't take too many of these to create storage issues.  The same issues exist on your docker repository and any server that needs to pull your docker image.  You are also likely to run into network bandwidth issues, especially when you need push your image to a remote repository.  
 
 So lets run `docker history` on the demo app we just created
 
