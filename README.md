@@ -1,23 +1,23 @@
 # Docker Prepare Gradle Plugin
 
-This is a gradle plugin that you can use in your [Spring Boot](https://projects.spring.io/spring-boot/) project to prepare the spring boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the spring boot jar file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
+This is a gradle plugin that you can use in your [Spring Boot](https://projects.spring.io/spring-boot/) project to prepare the Spring Boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the Spring Boot jar/war file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
   * uses the official [openjdk jre-alpine image](https://hub.docker.com/_/openjdk/) as a base
   * runs your app as a non-root user
-  * splits your spring boot jar into 2 layers for compact builds - one for dependencies and one for classes
+  * splits your Spring Boot jar into 2 layers for compact builds - one for dependencies and one for classes
   * exposes port 8080
   * runs the application using a script that allows for your app to receive OS signals when running inside the container - your app will shutdown cleanly
   * passes along any runtime arguments to your application 
 
 Note: this plugin merely populates a `build/docker` staging directory.  It does not create docker images or use the docker API in any way.  There are other gradle plugins for that.  [See below](#build-docker-image-with-gradle).
 
-This plugin is really meant for when you have a spring boot application that you want to run independently in a docker container.  By default, the only process inside the container is the JVM that runs your application.  In this case, we can cleanly pass OS signals to your application.  More complex scenarios are possible [Customizing](#customizing)
+This plugin is really meant for when you have a Spring Boot application that you want to run independently in a docker container.  By default, the only process inside the container is the JVM that runs your application.  In this case, we can cleanly pass OS signals to your application.  More complex scenarios are possible [Customizing](#customizing)
 
 # Using
 To use this, add this snippet to your build.gradle file or use the example at [sample/demo](sample/demo)
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "0.9.3"
+  id "com.garyclayburg.dockerprepare" version "0.9.4"
 }
 ```
 The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
@@ -43,7 +43,7 @@ Thats it!  You now have a efficient, streamlined docker image that you can run. 
 
 Lets build a hello world style app using this plugin.
 
-1. create a new spring boot app from [http://start.spring.io]
+1. create a new Spring Boot app from [http://start.spring.io]
 2. select `Gradle Project` from the drop down menu at the top of the page
 3. Add the `Web` dependency.  You can add other dependencies if you like, but you don't need to.  
 4. Click the "Generate Project" button and download the created zip file.
@@ -68,9 +68,9 @@ Stop it with ctrl-c.
 2017-09-18 18:09:14.437  INFO 14774 --- [       Thread-3] o.s.j.e.a.AnnotationMBeanExporter        : Unregistering JMX-exposed beans on shutdown
 ```
 
-Notice the output generated when we stopped the app.  Our ctrl-c on the terminal sent a SIGINT to our application which was able to trap this and [perform some standard spring boot cleanup action](https://docs.spring.io/spring-boot/docs/current/reference/html/boot-features-spring-application.html#boot-features-application-exit).  In the default case here, a JMX bean cleaned up after itself.  
+Notice the output generated when we stopped the app.  Our ctrl-c on the terminal sent a SIGINT to our application which was able to trap this and [perform some standard Spring Boot cleanup action](https://docs.spring.io/spring-boot/docs/current/reference/html/boot-features-spring-application.html#boot-features-application-exit).  In the default case here, a JMX bean cleaned up after itself.  
 
-This is just a simple spring boot application that runs an embedded Tomcat server with our simple app along with all its dependencies.  Everything we need is in this one jar file - well everything except the JVM to run it and supporting OS libraries.  Docker to the rescue!  
+This is just a simple Spring Boot application that runs an embedded Tomcat server with our simple app along with all its dependencies.  Everything we need is in this one jar file - well everything except the JVM to run it and supporting OS libraries.  Docker to the rescue!  
 
 ## adding the preparedocker plugin
 What we want to do now is take this app and bundle it inside a docker container with the JVM and everything the JVM needs.  
@@ -78,7 +78,7 @@ What we want to do now is take this app and bundle it inside a docker container 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "0.9.3"
+  id "com.garyclayburg.dockerprepare" version "0.9.4"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
@@ -128,7 +128,7 @@ ENV JAVA_OPTS=""
 ENTRYPOINT ["./bootrunner.sh"]
 ```
 
-There are two ADD commands in here.  This plugin split the Spring boot jar file into two directories - one for your application code classes and the other for dependent jar files.  This way, we get all the benefits of a spring boot runnable jar file and yet we can still use the docker layer cache.
+There are two ADD commands in here.  This plugin split the Spring Boot jar file into two directories - one for your application code classes and the other for dependent jar files.  This way, we get all the benefits of a Spring Boot runnable jar file and yet we can still use the docker layer cache.
 
 ### [bootrunner.sh](src/main/resources/defaultdocker/bootrunner.sh)
 ```bash
@@ -138,7 +138,13 @@ date_echo(){
     echo "${datestamp} $*"
 }
 #exec the JVM so that it will get a SIGTERM signal and the app can shutdown gracefully
-if [ -d "${HOME}/app" ]; then
+
+if [ -d "${HOME}/app/WEB-INF" ]; then
+  #execute springboot expanded war, which may have been constructed from several image layers
+  date_echo "exec java ${JAVA_OPTS} -Djava.security.egd=file:/dev/./urandom -cp ${HOME}/app org.springframework.boot.loader.WarLauncher $*"
+  # shellcheck disable=SC2086
+  exec java ${JAVA_OPTS} -Djava.security.egd=file:/dev/./urandom -cp "${HOME}/app" org.springframework.boot.loader.WarLauncher "$@"
+elif [ -d "${HOME}/app" ]; then
   #execute springboot expanded jar, which may have been constructed from several image layers
   date_echo "exec java ${JAVA_OPTS} -Djava.security.egd=file:/dev/./urandom -cp ${HOME}/app org.springframework.boot.loader.JarLauncher $*"
   # shellcheck disable=SC2086
@@ -154,6 +160,8 @@ else
 fi 
 ```
 
+This script will run your Spring Boot packaged jar or war so that OS signals can be trapped by your application when running under Docker.
+
 If you like, you can create a docker image manually from the files in this directory:
 
 ```bash
@@ -163,13 +171,13 @@ $ docker build -t myorg/demo:latest .
 
 # Why are docker layers important?
 
-An alternative way to build a docker image from a Spring Boot jar file is to simply take the generated spring boot jar file and run it directly inside the docker container.  Your `Dockerfile` will have a line that looks something like this:
+An alternative way to build a docker image from a Spring Boot jar file is to simply take the generated Spring Boot jar file and run it directly inside the docker container.  Your `Dockerfile` will have a line that looks something like this:
 
 ```dockerfile
 ADD build/libs/*.jar app.jar
 ```
 
-Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a spring boot self contained jar file in docker.  However, you can easily run into performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  
+Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a Spring Boot self contained jar file in docker.  However, you can easily run into performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  
 
 Most of the builds and deploys only involve changes to your project code, yet each build has everything bundled into this one jar file.  In our simple demo case, the jar file is about 14 MB.  This can easily grow into an app that is 50,60,70MB or even bigger.  This can become taxing in docker environments where each time you build the docker image, the old layers stick around on the filesystem.  When the old layer is 70+ MB, it doesn't take too many of these to create storage issues.  The same issues exist on your docker repository and any server that needs to pull your docker image.  You are also likely to run into network bandwidth issues, especially when you need push your image to a remote repository.  
 
@@ -202,7 +210,7 @@ c4f9d77cd2a1        3 months ago        /bin/sh -c set -x  && apk add --no-cache
 
 This shows us the layers and sizes in our app.  Notice the 5th and 6th lines with `ADD` commands.  The top one is our application classes layer at 1KB and the bottom one is our dependencies 14MB.  Heuristically, Most builds will not involve changes to the dependencies so when you perform a docker build, docker can reuse this image layer from the [cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache).
 
-In my testing, a docker push went from taking more than 3 minutes to just 5 seconds when the cache is used.
+In my testing, a `docker push` went from taking more than 3 minutes to just 5 seconds when the cache is used.
 
 # Build Docker Image with Gradle
 
@@ -230,7 +238,7 @@ Stop it with ctrl-c.  Notice we still see the JMX beans unregistering:
 $ docker run -p8081:8011 myorg/demo:latest --server.port=8011
 ```
 
-Inside the container, the application is listening on port 8011.  Outside the container, it is listening on localhost:8081.  Note: you normally won't need to change the internal port like this since the docker container sees its own network namespace.  We are just showing how the docker packaged app can override any standard spring externalized property like `server.port`.
+Inside the container, the application is listening on port 8011.  Outside the container, it is listening on localhost:8081.  Note: you normally won't need to change the internal port like this since the docker container sees its own network namespace.  We are just showing how the docker packaged app can override any standard Spring externalized property like `server.port`.
 
 ### run in foreground with custom java max heap:
 ```bash
@@ -239,15 +247,19 @@ $ docker run -p8080:8080 --env JAVA_OPTS='-Xmx500m' myorg/demo:latest
 
 # Impacts to Gradle lifecycle
 
-This plugin inserts a few gradle tasks into the normal gradle lifecycle when `com.garyclayburg.dockerprepare` is applied.  These tasks run after the spring boot 'bootRepackage' task and before `assemble`.  
+This plugin inserts a few gradle tasks into the normal gradle lifecycle when `com.garyclayburg.dockerprepare` is applied.  These tasks run after the Spring Boot 'bootRepackage' task and before `assemble`.  
 
-### Gradle lifecycle when using spring boot 1.x:
+### Gradle lifecycle when using Spring Boot 1.x:
 
 `classes` --> `jar` --> `bootRepackage` -->  **`dockerLayerPrepare`** --> `assemble` --> `build`
 
-### Gradle lifecycle when using spring boot 2.0+:
+### Gradle lifecycle when using Spring Boot 2.0+:
 
 `classes` --> `jar` --> `bootJar` -->  **`dockerLayerPrepare`** --> `assemble` --> `build`
+
+### Gradle lifecycle when using Spring Boot 1.x and a war instead of jar:
+
+`classes` --> `war` --> `bootRepackage` -->  **`dockerLayerPrepare`** --> `assemble` --> `build`
 
 
 This is why our gradle `buildImage` task dependsOn `dockerLayerPrepare`:
@@ -279,7 +291,3 @@ dockerprepare{
 	dockerSrcDirectory "${project.rootDir}/mydockersrc"
 }
 ```
-
-# Limitations
-
-This plugin only works with Spring boot jar files.  War file support is planned.

@@ -4,7 +4,13 @@ date_echo(){
     echo "${datestamp} $*"
 }
 #exec the JVM so that it will get a SIGTERM signal and the app can shutdown gracefully
-if [ -d "${HOME}/app" ]; then
+
+if [ -d "${HOME}/app/WEB-INF" ]; then
+  #execute springboot expanded war, which may have been constructed from several image layers
+  date_echo "exec java ${JAVA_OPTS} -Djava.security.egd=file:/dev/./urandom -cp ${HOME}/app org.springframework.boot.loader.WarLauncher $*"
+  # shellcheck disable=SC2086
+  exec java ${JAVA_OPTS} -Djava.security.egd=file:/dev/./urandom -cp "${HOME}/app" org.springframework.boot.loader.WarLauncher "$@"
+elif [ -d "${HOME}/app" ]; then
   #execute springboot expanded jar, which may have been constructed from several image layers
   date_echo "exec java ${JAVA_OPTS} -Djava.security.egd=file:/dev/./urandom -cp ${HOME}/app org.springframework.boot.loader.JarLauncher $*"
   # shellcheck disable=SC2086

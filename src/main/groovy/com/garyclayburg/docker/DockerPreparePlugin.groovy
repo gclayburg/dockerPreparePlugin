@@ -61,21 +61,60 @@ class DockerPreparePlugin implements Plugin<Project> {
                 inputs.file { jarTask.archivePath }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
-                    getLogger().info("populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
-                    //in some projects, jar.archivePath may change after bootRepackage is executed.
-                    // It might be one value during configure, but another after bootRepackage.
-                    afterevalproject.copy {
-                        from afterevalproject.zipTree(jarTask.archivePath)
-                        into settings.dockerBuildDependenciesDirectory
-                        exclude "/BOOT-INF/classes/**"
-                        exclude "/META-INF/**"
-                    }
-                    getLogger().info("populating classes layer ${settings.dockerBuildClassesDirectory} from \n${jarTask.archivePath}")
-                    afterevalproject.copy {
-                        from afterevalproject.zipTree(jarTask.archivePath)
-                        into settings.dockerBuildClassesDirectory
-                        include "/BOOT-INF/classes/**"
-                        include "/META-INF/**"
+
+                    File jarfile = project.file(jarTask.archivePath)
+                    if (jarfile.exists()){
+                        if (jarfile.canExecute()){
+                            throw new IllegalStateException("dockerprepare cannot prepare jar file that is executable")
+                        }
+                        getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
+                        //in some projects, jar.archivePath may change after bootRepackage is executed.
+                        // It might be one value during configure, but another after bootRepackage.
+                        afterevalproject.copy {
+                            from afterevalproject.zipTree(jarTask.archivePath)
+                            into settings.dockerBuildDependenciesDirectory
+                            exclude "/BOOT-INF/classes/**"
+                            exclude "/META-INF/**"
+                        }
+                        getLogger().info("jar file populating classes layer ${settings.dockerBuildClassesDirectory} from \n${jarTask.archivePath}")
+                        afterevalproject.copy {
+                            from afterevalproject.zipTree(jarTask.archivePath)
+                            into settings.dockerBuildClassesDirectory
+                            include "/BOOT-INF/classes/**"
+                            include "/META-INF/**"
+                        }
+
+                    } else {
+                        def warTask
+                        try {
+                            warTask = afterevalproject.tasks.getByName('war')
+                            File warfile = project.file(warTask.archivePath)
+
+                            if (warfile.exists()){
+                                if (warfile.canExecute()){
+                                    throw new IllegalStateException("dockerprepare cannot prepare war file that is executable")
+                                }
+                                getLogger().info("war file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${warTask.archivePath}")
+                                //in some projects, jar.archivePath may change after bootRepackage is executed.
+                                // It might be one value during configure, but another after bootRepackage.
+                                afterevalproject.copy {
+                                    from afterevalproject.zipTree(warTask.archivePath)
+                                    into settings.dockerBuildDependenciesDirectory
+                                    include "/WEB-INF/lib*/**"
+                                }
+                                getLogger().info("war file populating classes layer ${settings.dockerBuildClassesDirectory} from \n${warTask.archivePath}")
+                                afterevalproject.copy {
+                                    from afterevalproject.zipTree(warTask.archivePath)
+                                    into settings.dockerBuildClassesDirectory
+                                    exclude "WEB-INF/lib*/**"
+                                }
+
+                            } else{
+                                getLogger().error("no war file or jar file found to prepare for Docker")
+                            }
+                        } catch (UnknownTaskException ue) {
+                            getLogger().error("no war file or jar file found to prepare for Docker")
+                        }
                     }
                 }
             }

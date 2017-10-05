@@ -334,6 +334,106 @@ dependencies {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
+    def 'apply dockerprepare with war file'(){
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	providedRuntime
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+
+    }
+    def 'apply dockerprepare with executable war file'(){
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	providedRuntime
+}
+
+springBoot {
+  executable = true
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+
+        then: 'fail the build instead of letting zipTree silently fail'
+        thrown UnexpectedBuildFailure
+
+    }
+
     def 'apply dockerprepare with com.palantir.docker'() {
         given:
         buildFile << """
