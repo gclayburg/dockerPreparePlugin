@@ -11,7 +11,7 @@ buildscript {
 }
 
 plugins {
-	id 'com.garyclayburg.dockerprepare' version '0.9.4'
+	id 'com.garyclayburg.dockerprepare' version '1.0.0'
 	id "com.bmuschko.docker-remote-api" version "3.1.0"
 }
 
