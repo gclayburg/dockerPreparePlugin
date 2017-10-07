@@ -291,3 +291,18 @@ dockerprepare{
 	dockerSrcDirectory "${project.rootDir}/mydockersrc"
 }
 ```
+
+Check out [Memuser](https://github.com/gclayburg/memuser) for an example of a customized project
+
+# Errors
+
+### dockerprepare cannot prepare war file that is executable
+
+Your build.gradle is building a spring executable war file.  This causes issues for many tools that attempt to extract a jar/war/zip file.  To fix it, remove executable support:
+
+```groovy
+springBoot{
+  executable = false
+}
+
+``` 

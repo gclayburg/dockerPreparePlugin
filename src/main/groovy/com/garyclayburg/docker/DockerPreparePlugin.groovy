@@ -57,8 +57,15 @@ class DockerPreparePlugin implements Plugin<Project> {
             }
 
             def jarTask = afterevalproject.tasks.getByName('jar')
+            def warT
+            try {
+                warT = afterevalproject.tasks.getByName('war')
+            } catch (UnknownTaskException ignored) {
+            }
             def expandBootJar = afterevalproject.task('expandBootJar') {
-                inputs.file { jarTask.archivePath }
+                inputs.files {
+                    warT != null ? [jarTask.archivePath,warT.archivePath] :[jarTask.archivePath]
+                }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
 

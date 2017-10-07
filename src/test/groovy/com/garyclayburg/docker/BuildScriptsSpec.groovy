@@ -28,6 +28,7 @@ import org.junit.rules.TestName
 import spock.lang.Specification
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
+import static org.gradle.testkit.runner.TaskOutcome.UP_TO_DATE
 
 /**
  * <br><br>
@@ -42,6 +43,7 @@ class BuildScriptsSpec extends Specification {
     File buildFile
 
     @Rule TestName name = new TestName()
+    private srcdir
 
     def cleanup() {
         def root = testProjectDir.getRoot()
@@ -54,10 +56,8 @@ class BuildScriptsSpec extends Specification {
     def "setup"() {
         println "running test: ${name.methodName}"
         buildFile = testProjectDir.newFile('build.gradle')
-        def srcdir = testProjectDir.newFolder('src', 'main', 'groovy', 'dummypackage')
-        File mainclass = new File(srcdir, 'SimpleMain.groovy')
-        mainclass.createNewFile()
-        mainclass << """
+        srcdir = testProjectDir.newFolder('src', 'main', 'groovy', 'dummypackage')
+        createclass('SimpleMain.groovy',"""
 package dummypackage
 
 class DockerplugindemoApplication {
@@ -67,7 +67,13 @@ class DockerplugindemoApplication {
 	}
 }
 
-"""
+""")
+    }
+
+    private void createclass(String filename,String contents) {
+        File mainclass = new File(this.srcdir, filename)
+        mainclass.createNewFile()
+        mainclass << contents
     }
 
 
@@ -381,7 +387,41 @@ dependencies {
         result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
 
+        when:
+        result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        then: "2nd build processes new war"
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+
+        when:
+        createclass('DockerpluginStuff.groovy',"""
+package dummypackage
+
+class DockerpluginStuff {
+
+	static void justamethod(String[] args) {
+	    println('this is not even a main')
+	}
+}
+
+""")
+        result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        then: "new class triggers prepare"
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+
     }
+
     def 'apply dockerprepare with executable war file'(){
         given:
         buildFile << """
