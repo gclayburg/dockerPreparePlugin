@@ -19,7 +19,7 @@ To use this, add this snippet to your build.gradle file or use the example at [s
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.0.0"
+  id "com.garyclayburg.dockerprepare" version "1.0.1"
 }
 ```
 The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
@@ -80,7 +80,7 @@ What we want to do now is take this app and bundle it inside a docker container 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.0.0"
+  id "com.garyclayburg.dockerprepare" version "1.0.1"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
