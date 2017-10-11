@@ -161,11 +161,13 @@ dependencies {
                 .withArguments('dockerLayerPrepare', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
+        File bootrunner = new File(testProjectDir.root.toString() +"/build/docker/bootrunner.sh")
 
         then:
         result.output.contains('SUCCESSFUL')
         result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
+        bootrunner.exists()
     }
 
     def 'apply dockerprepare after spring boot'() {
