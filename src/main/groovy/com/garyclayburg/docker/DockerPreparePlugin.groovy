@@ -65,7 +65,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                     File jarfile = project.file(jarTask.archivePath)
                     if (jarfile.exists()){
                         if (jarfile.canExecute()){
-                            throw new IllegalStateException("dockerprepare cannot prepare jar file that is executable")
+                            throw new IllegalStateException("dockerprepare cannot prepare jar file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
                         }
                         getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
                         //in some projects, jar.archivePath may change after bootRepackage is executed.
@@ -92,7 +92,7 @@ class DockerPreparePlugin implements Plugin<Project> {
 
                             if (warfile.exists()){
                                 if (warfile.canExecute()){
-                                    throw new IllegalStateException("dockerprepare cannot prepare war file that is executable")
+                                    throw new IllegalStateException("dockerprepare cannot prepare war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
                                 }
                                 getLogger().info("war file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${warTask.archivePath}")
                                 //in some projects, jar.archivePath may change after bootRepackage is executed.
