@@ -16,6 +16,8 @@ USER springboot
 # We add a special springboot user for running our application.
 # Java applications do not need to be run as root
 
+ADD superDependenciesLayer /home/springboot/app/
+
 ADD dependenciesLayer/ /home/springboot/app/
 # this layer contains dependent jar files of the app.  Most of the time,
 # having dependencies in this layer will take advantage of the docker build

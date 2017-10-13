@@ -23,6 +23,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.UnknownTaskException
+import org.gradle.api.artifacts.ResolvedConfiguration
 import org.gradle.api.logging.Logger
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Copy
@@ -83,6 +84,53 @@ class DockerPreparePlugin implements Plugin<Project> {
                             include "/BOOT-INF/classes/**"
                             include "/META-INF/**"
                         }
+                        println 'runtime resolved dependencies'
+                        def resolvedConfiguration = project.configurations.getByName('runtime').resolvedConfiguration
+//                        project.configurations.getByName('compile').resolvedConfiguration.resolvedArtifacts.each { artifact ->
+//                            artifact.
+//                        }
+                        Map jarmap = [:]
+
+                        resolvedConfiguration.resolvedArtifacts.each { onedep ->
+                            println onedep.name + " " +onedep.moduleVersion + " " + "stripped: " +onedep.getFile().name
+                            jarmap.put(onedep.getFile().name,onedep.moduleVersion)
+
+//                            println  "stripped: " +onedep.getFile().name
+
+                        }
+//                        resolvedConfiguration.firstLevelModuleDependencies.each { one ->
+//                            println "first level dependency: " +one.name
+//                            one.moduleArtifacts.each{ artifactone ->
+//                                println "art: " +artifactone.getFile().name
+//                            }
+//                        }
+//                        println "all runtime files"
+//                        def files = resolvedConfiguration.files
+//                        files.each { file ->
+//                            println "file: " +file.name
+//                        }
+
+                        println "closure filter files"
+                        List deplist = []
+                        def depjars = []
+                        project.configurations.getByName('runtime').files { depend ->
+                            println "dep: " + depend.name
+                            depend.each{ insideit ->
+                                println "  inner: "+ insideit.name
+                            }
+                            depend.name == 'spring-boot-starter-web'
+                        }.each { outside ->
+                            println "  outside: "+outside.name + " " + jarmap.get(outside.name)
+                            deplist.add(jarmap.get(outside.name))
+                            depjars.add(outside.name)
+                            ant.move(file: settings.dockerBuildDependenciesDirectory +"/BOOT-INF/lib/"+ outside.name ,
+                                    tofile: settings.superDependenciesDirectory +"/BOOT-INF/lib/"+ outside.name)
+                        }
+                        deplist.toSorted{a,b -> a.toString() <=> b.toString()}.each{ line ->
+                            println "ordered: "+ line
+                        }
+
+
 
                     } else {
                         def warTask

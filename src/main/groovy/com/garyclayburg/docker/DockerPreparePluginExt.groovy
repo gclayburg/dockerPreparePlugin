@@ -97,6 +97,7 @@ class DockerPreparePluginExt {
     String dockerBuildDirectory
     String dockerBuildClassesDirectory
     String dockerBuildDependenciesDirectory
+    String superDependenciesDirectory
 
     DockerPreparePluginExt(Project project) {
         this.project = project
@@ -175,6 +176,7 @@ class DockerPreparePluginExt {
         this.dockerBuildDirectory = buildD
         this.dockerBuildClassesDirectory = buildD +"/classesLayer"
         this.dockerBuildDependenciesDirectory = buildD +"/dependenciesLayer"
+        this.superDependenciesDirectory = buildD +"/superDependenciesLayer"
     }
 
 }
