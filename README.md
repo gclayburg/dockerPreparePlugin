@@ -1,6 +1,6 @@
-![](https://travis-ci.org/gclayburg/dockerPreparePlugin.svg?branch=master)
-
 # Docker Prepare Gradle Plugin
+
+![Build Status](https://travis-ci.org/gclayburg/dockerPreparePlugin.svg?branch=master)
 
 This is a gradle plugin that you can use in your [Spring Boot](https://projects.spring.io/spring-boot/) project to prepare the Spring Boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the Spring Boot jar/war file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
   * uses the official [openjdk jre-alpine image](https://hub.docker.com/_/openjdk/) as a base
