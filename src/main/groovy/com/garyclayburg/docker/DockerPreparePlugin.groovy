@@ -27,6 +27,7 @@ import org.gradle.api.artifacts.ResolvedConfiguration
 import org.gradle.api.logging.Logger
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Copy
+import org.gradle.jvm.tasks.Jar
 
 /**
  * <br><br>
@@ -43,17 +44,17 @@ class DockerPreparePlugin implements Plugin<Project> {
     public static final String DOCKERPREPARE_EXTENSION = "dockerprepare"
     Project project
     def settings
+    boolean usingSpringBoot2API = false
+    private Task bootRepackageTask
 
     @Override
     void apply(Project project) {
         this.project = project
         project.getLogger().info ' apply com.garyclayburg.dockerprepare'
         settings = createExtension()
-        def bootRepackageTask
         project.afterEvaluate { afterevalproject ->
-
-            bootRepackageTask = getBootRepaackageTask(afterevalproject)
-
+            probeSpringBootVersion(afterevalproject)
+            failWhenExecutable()
             def jarTask = afterevalproject.tasks.getByName('jar')
             def warT = getWarTask(afterevalproject)
             def expandBootJarTask = afterevalproject.task(EXPAND_BOOT_JAR) {
@@ -62,12 +63,8 @@ class DockerPreparePlugin implements Plugin<Project> {
                 }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
-
                     File jarfile = project.file(jarTask.archivePath)
                     if (jarfile.exists()){
-                        if (jarfile.canExecute()){
-                            throw new IllegalStateException("dockerprepare cannot prepare jar file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
-                        }
                         getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
                         //in some projects, jar.archivePath may change after bootRepackage is executed.
                         // It might be one value during configure, but another after bootRepackage.
@@ -139,9 +136,6 @@ class DockerPreparePlugin implements Plugin<Project> {
                             File warfile = project.file(warTask.archivePath)
 
                             if (warfile.exists()){
-                                if (warfile.canExecute()){
-                                    throw new IllegalStateException("dockerprepare cannot prepare war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
-                                }
                                 getLogger().info("war file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${warTask.archivePath}")
                                 //in some projects, jar.archivePath may change after bootRepackage is executed.
                                 // It might be one value during configure, but another after bootRepackage.
@@ -172,6 +166,35 @@ class DockerPreparePlugin implements Plugin<Project> {
         }
         createCopydocker(COPY_DOCKER)
         createCopyDefaultDockerfile(COPY_DEFAULT_DOCKERFILE)
+
+    }
+
+    private void failWhenExecutable() {
+        def springBootExtension
+        project.getLogger().info('checking springboot execution')
+        springBootExtension = project.extensions.findByName('springBoot')
+        if (springBootExtension != null){
+            if (!usingSpringBoot2API){
+                /*
+                This is an attempt for this project to be as flexible as possible.
+                 We only need a few things from the spring boot gradle plugin, so we
+                 try to allow the user to choose the version they want in their
+                 own build.gradle.
+                This part may be a little fragile, but it is probably better than
+                 this project depending on a specific version of Spring Boot.
+                 */
+                if (springBootExtension.isExecutable()){
+                    throw new IllegalStateException("dockerprepare cannot prepare jar/war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
+                }
+            } else{
+                assert project.bootJar instanceof Jar
+                if (project.bootJar.getLaunchScript().isIncluded()){
+                    throw new IllegalStateException("dockerprepare cannot prepare spring boot 2 jar/war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
+                }
+            }
+        } else{
+            throw new IllegalStateException("springBoot extension not found")
+        }
 
     }
 
@@ -237,7 +260,7 @@ class DockerPreparePlugin implements Plugin<Project> {
     }
 
     private Task getWarTask(Project afterevalproject) {
-        def warT
+        def warT = null
         try {
             warT = afterevalproject.tasks.getByName('war')
         } catch (UnknownTaskException ignored) {
@@ -245,21 +268,23 @@ class DockerPreparePlugin implements Plugin<Project> {
         warT
     }
 
-    private Task getBootRepaackageTask(Project afterevalproject) {
-        def bootRepackageTask
+    private void probeSpringBootVersion(Project afterevalproject) {
         //add expandBootJar task and bootRepackage dependencies after other plugins are evaluated
         //we depend on the 'jar' task from java plugin and 'bootRepackage' from spring boot gradle plugin
         try {
-            bootRepackageTask = afterevalproject.tasks.getByName('bootRepackage')
-        } catch (UnknownTaskException ute) {
+            this.bootRepackageTask = afterevalproject.tasks.getByName('bootRepackage')
+            this.usingSpringBoot2API = false
+            project.getLogger().info('using spring boot 1...')
+        } catch (UnknownTaskException ignore) {
             try {
-                bootRepackageTask = afterevalproject.tasks.getByName('bootJar')
+                this.bootRepackageTask = afterevalproject.tasks.getByName('bootJar')
+                usingSpringBoot2API = true
+                project.getLogger().info('using spring boot 2...')
             } catch (UnknownTaskException ute2) {
                 project.getLogger().error('com.garyclayburg.dockerprepare gradle plugin requires Spring Boot plugin, however \'bootRepackage\' task does not exist.  Is Spring Boot installed correctly?')
                 throw ute2
             }
         }
-        bootRepackageTask
     }
 
     private static void printDir(String path, Logger logger) {
