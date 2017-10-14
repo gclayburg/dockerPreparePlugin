@@ -342,6 +342,66 @@ dependencies {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
+    def 'apply dockerprepare with spring boot 2 with executable'() {
+        given:
+        buildFile << """
+buildscript {
+	ext {
+		springBootVersion = '2.0.0.M3'
+	}
+	repositories {
+	    jcenter()
+		maven { url "https://repo.spring.io/snapshot" }
+		maven { url "https://repo.spring.io/milestone" }
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:\${springBootVersion}")
+	}
+}
+
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+	maven { url "https://repo.spring.io/snapshot" }
+	maven { url "https://repo.spring.io/milestone" }
+}
+
+bootJar {
+  launchScript {
+    included = true
+  }
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace','--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+
+        then: 'fail the build instead of letting zipTree silently fail'
+        thrown UnexpectedBuildFailure
+    }
+
     def 'apply dockerprepare with war file'(){
         given:
         buildFile << """
