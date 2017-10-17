@@ -97,7 +97,8 @@ class DockerPreparePluginExt {
     String dockerBuildDirectory
     String dockerBuildClassesDirectory
     String dockerBuildDependenciesDirectory
-    String superDependenciesDirectory
+    String commonServiceDependenciesDirectory
+    def commonService = []
 
     DockerPreparePluginExt(Project project) {
         this.project = project
@@ -127,6 +128,21 @@ class DockerPreparePluginExt {
     def dockerprepare(Closure closure){ //method name matches config block override:
         closure.delegate = this
         closure()
+    }
+
+    void setCommonService(String[] commonService) {
+        this.commonService(commonService)
+    }
+
+    void commonService(String[] commonService){
+        this.commonService = commonService
+        commonService.each {
+            def (desiredgroup,desiredname) = it.tokenize(':')
+            if (desiredgroup == null || desiredname == null){
+                throw new IllegalStateException("Invalid commonService: $commonService. \n   Dependencies must use standard list format, e.g:  ['org.springframework.boot:spring-boot-starter-web','org.springframework.boot:spring-boot-starter-actuator']"  )
+            }
+
+        }
     }
 
     void setDockerSrcDirectory(String dockerSrcDirectory) {
@@ -174,9 +190,9 @@ class DockerPreparePluginExt {
     void dockerBuildDirectory(String buildD){
         log.info("set dockerBuildDirectory to ${buildD}")
         this.dockerBuildDirectory = buildD
-        this.dockerBuildClassesDirectory = buildD +"/classesLayer"
-        this.dockerBuildDependenciesDirectory = buildD +"/dependenciesLayer"
-        this.superDependenciesDirectory = buildD +"/superDependenciesLayer"
+        this.dockerBuildClassesDirectory = buildD +"/classesLayer3"
+        this.dockerBuildDependenciesDirectory = buildD +"/dependenciesLayer2"
+        this.commonServiceDependenciesDirectory = buildD +"/commonServiceDependenciesLayer1"
     }
 
 }
