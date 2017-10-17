@@ -80,7 +80,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                             include "/BOOT-INF/classes/**"
                             include "/META-INF/**"
                         }
-
+                        moveCommonJar()
                     } else {
                         def warTask
                         try {
@@ -102,7 +102,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                                     into settings.dockerBuildClassesDirectory
                                     exclude "WEB-INF/lib*/**"
                                 }
-
+                                moveCommonWar()
                             } else{
                                 getLogger().error("no war file or jar file found to prepare for Docker")
                             }
@@ -119,6 +119,19 @@ class DockerPreparePlugin implements Plugin<Project> {
         createCopydocker(COPY_DOCKER)
         createCopyDefaultDockerfile(COPY_DEFAULT_DOCKERFILE)
 
+    }
+
+    private void moveCommonJar() {
+        DependencyMover dm = new DependencyMover(settings: settings,project: project)
+        dm.move('runtime','/BOOT-INF/lib/')
+        dm.check()
+    }
+
+    private void moveCommonWar() {
+        DependencyMover dm = new DependencyMover(settings: settings,project: project)
+        dm.move('providedRuntime','/WEB-INF/lib-provided/')
+        dm.moveWar('runtime')
+        dm.check()
     }
 
     private void failWhenExecutable() {
@@ -212,7 +225,7 @@ class DockerPreparePlugin implements Plugin<Project> {
     }
 
     private Task getWarTask(Project afterevalproject) {
-        def warT
+        def warT = null
         try {
             warT = afterevalproject.tasks.getByName('war')
         } catch (UnknownTaskException ignored) {
@@ -227,7 +240,7 @@ class DockerPreparePlugin implements Plugin<Project> {
             this.bootRepackageTask = afterevalproject.tasks.getByName('bootRepackage')
             this.usingSpringBoot2API = false
             project.getLogger().info('using spring boot 1...')
-        } catch (UnknownTaskException ute) {
+        } catch (UnknownTaskException ignore) {
             try {
                 this.bootRepackageTask = afterevalproject.tasks.getByName('bootJar')
                 usingSpringBoot2API = true

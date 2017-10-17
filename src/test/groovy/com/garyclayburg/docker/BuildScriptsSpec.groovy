@@ -28,7 +28,6 @@ import org.junit.rules.TestName
 import spock.lang.Specification
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
-import static org.gradle.testkit.runner.TaskOutcome.UP_TO_DATE
 
 /**
  * <br><br>
@@ -42,8 +41,9 @@ class BuildScriptsSpec extends Specification {
     final TemporaryFolder testProjectDir = new TemporaryFolder()
     File buildFile
 
-    @Rule TestName name = new TestName()
-    private srcdir
+    @Rule
+    TestName name = new TestName()
+    private File srcdir
 
     def cleanup() {
         def root = testProjectDir.getRoot()
@@ -57,7 +57,7 @@ class BuildScriptsSpec extends Specification {
         println "running test: ${name.methodName}"
         buildFile = testProjectDir.newFile('build.gradle')
         srcdir = testProjectDir.newFolder('src', 'main', 'groovy', 'dummypackage')
-        createclass('SimpleMain.groovy',"""
+        createclass('SimpleMain.groovy', """
 package dummypackage
 
 class DockerplugindemoApplication {
@@ -70,7 +70,7 @@ class DockerplugindemoApplication {
 """)
     }
 
-    private void createclass(String filename,String contents) {
+    private void createclass(String filename, String contents) {
         File mainclass = new File(this.srcdir, filename)
         mainclass.createNewFile()
         mainclass << contents
@@ -161,7 +161,7 @@ dependencies {
                 .withArguments('dockerLayerPrepare', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
-        File bootrunner = new File(testProjectDir.root.toString() +"/build/docker/bootrunner.sh")
+        File bootrunner = new File(testProjectDir.root.toString() + "/build/docker/bootrunner.sh")
 
         then:
         result.output.contains('SUCCESSFUL')
@@ -199,7 +199,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
 
@@ -208,6 +208,7 @@ dependencies {
         result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
     }
+
     def 'apply dockerprepare before spring boot'() {
         given:
         buildFile << """
@@ -237,7 +238,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
 
@@ -246,6 +247,7 @@ dependencies {
         result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
     }
+
     def 'apply dockerprepare before spring boot and groovy'() {
         given:
         buildFile << """
@@ -275,7 +277,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
         println "build output is:"
@@ -286,7 +288,348 @@ dependencies {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare with spring boot 2'() {
+    def 'apply dockerprepare with commonService'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-web']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+
+        def count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/BOOT-INF/lib')
+                .listFiles().size()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+
+        count == 30
+    }
+
+    def 'apply dockerprepare with commonService bogus dependency'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:not-realdependency']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .buildAndFail()
+        println "build output is:"
+        println result.output
+
+        then:
+        result.output.contains('WARNING')
+    }
+
+    def 'commonservice war file'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	providedRuntime
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-tomcat','org.springframework.boot:spring-boot-starter-web']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        def count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib-provided')
+                .listFiles().size()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+        count == 4
+
+        when:
+        count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib')
+                .listFiles().size()
+
+        then:
+        count == 26
+    }
+
+    def 'commonservice war file no configurations.providedRuntime'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+//configurations {
+//	providedRuntime
+//}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-tomcat','org.springframework.boot:spring-boot-starter-web']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        def count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib-provided')
+                .listFiles().size()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+        count == 4
+
+        when:
+        count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib')
+                .listFiles().size()
+
+        then:
+        count == 26
+    }
+
+    def 'commonservice war file single array'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	providedRuntime
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-web']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        def count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib-provided')
+                .listFiles().size()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+        count == 4
+
+        when:
+        count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib')
+                .listFiles().size()
+
+        then:
+        count == 26
+    }
+
+    def 'war file with bogus dependency'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	providedRuntime
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:correct-format-but-still-not-a-real-dependency']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--info')
+                .withPluginClasspath()
+                .buildAndFail()
+        println "build output is:"
+        println result.output
+
+        then:
+        result.output.contains('WARNING')
+
+    }
+
+    def 'spring boot 2'() {
         given:
         buildFile << """
 buildscript {
@@ -331,7 +674,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
         println "build output is:"
@@ -342,7 +685,7 @@ dependencies {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
-    def 'apply dockerprepare with spring boot 2 with executable'() {
+    def 'spring boot 2 with executable'() {
         given:
         buildFile << """
 buildscript {
@@ -392,7 +735,7 @@ dependencies {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
         println "build output is:"
@@ -402,7 +745,7 @@ dependencies {
         thrown UnexpectedBuildFailure
     }
 
-    def 'apply dockerprepare with war file'(){
+    def 'war file'() {
         given:
         buildFile << """
 plugins {
@@ -461,7 +804,7 @@ dependencies {
         result.task(':dockerLayerPrepare').outcome == SUCCESS
 
         when:
-        createclass('DockerpluginStuff.groovy',"""
+        createclass('DockerpluginStuff.groovy', """
 package dummypackage
 
 class DockerpluginStuff {
@@ -484,7 +827,7 @@ class DockerpluginStuff {
 
     }
 
-    def 'apply dockerprepare with executable war file'(){
+    def 'executable war file'() {
         given:
         buildFile << """
 plugins {
@@ -573,7 +916,7 @@ docker {
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
         println result.getOutput()
@@ -611,17 +954,17 @@ dependencies {
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
 
-//task buildImage(type: DockerBuildImage, dependsOn: 'dockerLayerPrepare') {
-//    description = "build and tag a Docker Image"
-//    inputDir = project.file(dockerprepare.dockerBuildDirectory)
-//    tags = [ 'ignoreme:latest']
-//}
+task buildImage(type: com.bmuschko.gradle.docker.tasks.image.DockerBuildImage, dependsOn: 'dockerLayerPrepare') {
+    description = "build and tag a Docker Image"
+    inputDir = project.file(dockerprepare.dockerBuildDirectory)
+    tags = [ 'ignoreme:latest']
+}
 
 """
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace','--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
         println result.getOutput()
