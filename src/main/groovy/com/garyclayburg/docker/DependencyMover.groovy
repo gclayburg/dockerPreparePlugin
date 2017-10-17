@@ -32,7 +32,12 @@ class DependencyMover {
     def settings
     Project project
 
-    void move(String configurationName,String partialPath){
+    void createdirs(){
+        project.file(settings.commonServiceDependenciesDirectory).mkdirs()
+        project.file(settings.dockerBuildDependenciesDirectory).mkdirs()
+    }
+    void move(String configurationName, String partialPath){
+        createdirs()
         matchJars(configurationName).each { commonJarFile ->
             /*
             some dependencies might only exist in providedRuntime configuration
@@ -42,10 +47,10 @@ class DependencyMover {
             project.ant.move(file: settings.dockerBuildDependenciesDirectory + partialPath + commonJarFile.name,
                     tofile: settings.commonServiceDependenciesDirectory + partialPath + commonJarFile.name)
         }
-
     }
 
     void moveWar(String configurationName){
+        createdirs()
         matchJars(configurationName).each { commonJarFile ->
             if (!alreadyMovedJarfileNames.contains(commonJarFile.name)){
                 project.getLogger().info("common $configurationName dependency: "+commonJarFile.name)
