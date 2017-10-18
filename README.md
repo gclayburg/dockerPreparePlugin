@@ -2,10 +2,12 @@
 
 [![Build Status](https://travis-ci.org/gclayburg/dockerPreparePlugin.svg?branch=master)](https://travis-ci.org/gclayburg/dockerPreparePlugin)
 
-This is a gradle plugin that you can use in your [Spring Boot](https://projects.spring.io/spring-boot/) project to prepare the Spring Boot jar to run as a docker image.  This plugin goes beyond simply `ADD`ing the Spring Boot jar/war file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
+This is a gradle plugin that you can use in your [Spring Boot](https://projects.spring.io/spring-boot/) project to prepare the Spring Boot jar to run as a [docker](https://www.docker.com/) image.  This plugin goes beyond simply `ADD`ing the Spring Boot jar/war file to a `Dockerfile`.  This plugin will create an opinionated Dockerfile and staging directory that
   * uses the official [openjdk jre-alpine image](https://hub.docker.com/_/openjdk/) as a base
   * runs your app as a non-root user
-  * splits your Spring Boot jar into 2 layers for compact builds - one for dependencies and one for classes
+  * splits your Spring Boot jar into several docker layers to maximize 
+    * docker [cache hits](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) on subsequent builds of your project
+    *  docker [cache hits](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) *between* similar, but independent projects
   * exposes port 8080
   * runs the application using a script that allows for your app to receive OS signals when running inside the container - your app will shutdown cleanly
   * passes along any runtime arguments to your application 
@@ -19,7 +21,7 @@ To use this, add this snippet to your build.gradle file or use the example at [s
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.0.1"
+  id "com.garyclayburg.dockerprepare" version "1.1.0"
 }
 ```
 The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
@@ -29,7 +31,7 @@ Build your app:
 ```bash
 $ ./gradlew build
 $ ls build/docker
-bootrunner.sh  classesLayer/  dependenciesLayer/  Dockerfile
+bootrunner.sh  classesLayer3/  commonServiceDependenciesLayer1/  dependenciesLayer2/  Dockerfile
 ```
 
 Create your docker image by hand with these files:
@@ -39,7 +41,44 @@ $ cd build/docker
 $ docker build -t demoapp:latest .
 ```
 
-Thats it!  You now have a efficient, streamlined docker image that you can run.  The next build you perform will be much faster since it uses the [docker cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) as much as possible. 
+Thats it!  You now have a efficient, streamlined docker image of your Spring Boot app that you can run.  The next build you perform will be much faster since it uses the [docker cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) as much as possible. 
+
+# What is in the layers?
+
+This plugin runs in the gradle execution phase after Spring Boot creates your jar or war file.  It splits this application into 3 layers to maximize the chance of docker cache hits.
+ 
+### build/docker/commonServiceDependenciesLayer1/
+
+This layer is empty by default, but you might want to stuff common jars in here when you know you have several microservice style projects that share dependencies.
+
+If you have multiple projects that create a war file, you might add this to your build.gradle:
+```groovy
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-tomcat','org.springframework.boot:spring-boot-starter-web']
+}
+```
+- 30 jar files
+- 14 MB
+
+or if you have several groovy web projects:
+
+```groovy
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-web','org.codehaus.groovy:groovy']
+}
+```
+- 31 jar files
+- 19 MB
+
+**Note** : This plugin does not change how dependencies are resolved by gradle.  You still need to specify dependencies using [standard gradle syntax](https://docs.gradle.org/current/userguide/artifact_dependencies_tutorial.html).  Since gradle handles the version numbers, they are ignored in the `commonService` declaration.
+
+### build/docker/dependenciesLayer2/
+
+This layer is created automatically by this plugin.  It contains all dependent jar files that are not transitive dependencies of a `commonService`
+
+### build/docker/classesLayer3/
+
+This layer is created automatically by this plugin. It contains everything else isn't in `build/docker/commonServiceDependenciesLayer1` or `build/docker/dependenciesLayer2`
 
 # Quickstart with a new demo app
 
@@ -80,7 +119,7 @@ What we want to do now is take this app and bundle it inside a docker container 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.0.1"
+  id "com.garyclayburg.dockerprepare" version "1.1.0"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
@@ -90,21 +129,21 @@ $ ./gradlew build
 BUILD SUCCESSFUL
 
 $ ls build/docker
-bootrunner.sh  classesLayer/  dependenciesLayer/  Dockerfile
+bootrunner.sh  classesLayer3/  commonServiceDependenciesLayer1/  dependenciesLayer2/  Dockerfile
 ```
 
-These files were created by this dockerprepare plugin.  Lets take a look at these files:
+These files were created by this `dockerprepare` plugin.  Lets take a look at these files:
 
 ### [Dockerfile](src/main/resources/defaultdocker/Dockerfile)
 ```dockerfile
 FROM openjdk:8u131-jre-alpine
-# we choose this base image because:
+# We choose this base image because:
 # 1. it is the latest Java 8 version on alpine as of September 2017
 # 2. jre-alpine instead of jdk-alpine is much smaller but still enough to
 #    run most microservice applications on the JVM
 # 3. jre-alpine has a smaller security footprint than other official Java docker images
-# 4. the explicit version number means the a build will be repeatable
-#    i.e. not dependent on what version may have been pulled from a
+# 4. the explicit version number means the build will be repeatable
+#    i.e. not dependent on what :latest version may have been pulled from a
 #    docker registry before.
 
 RUN adduser -D -s /bin/sh springboot
@@ -115,14 +154,28 @@ USER springboot
 # We add a special springboot user for running our application.
 # Java applications do not need to be run as root
 
-ADD dependenciesLayer/ /home/springboot/app/
-# this layer contains dependent jar files of the app.  Most of the time,
-# having dependencies in this layer will take advantage of the docker layer
+ADD commonServiceDependenciesLayer1 /home/springboot/app/
+# This layer is composed of all transitive dependencies of a
+# commonService, e.g in your build.gradle:
+#
+#dockerprepare {
+#  commonService = ['org.springframework.boot:spring-boot-starter-web']
+#}
+#
+# All 30 jar files pulled in from spring-boot-starter-web are added to this layer
+
+ADD dependenciesLayer2/ /home/springboot/app/
+# This layer contains dependent jar files of the app that aren't a
+# commonService.  Most of the time,
+# having dependencies in this layer will take advantage of the docker build
 # cache.  This will give you faster build times, faster image
-# uploads/downloads and reduced storage requirements
-ADD classesLayer/ /home/springboot/app/
-# classesLayer contains your application classes.  This layer will
-# likely change on each docker image build so we expect a docker cache miss
+# uploads/downloads and reduced storage requirements.
+# This layer is computed automatically from your spring boot application
+
+ADD classesLayer3/ /home/springboot/app/
+# This layer contains your application classes.  It will
+# likely change on each docker image build so we expect a docker cache miss.
+# This layer is computed automatically from your spring boot application
 
 VOLUME /tmp
 EXPOSE 8080
@@ -130,7 +183,7 @@ ENV JAVA_OPTS=""
 ENTRYPOINT ["./bootrunner.sh"]
 ```
 
-There are two ADD commands in here.  This plugin split the Spring Boot jar file into two directories - one for your application code classes and the other for dependent jar files.  This way, we get all the benefits of a Spring Boot runnable jar file and yet we can still use the docker layer cache.
+There are three ADD commands in here for the 3 layers produced by this plugin.  We still get all the benefits of a Spring Boot runnable jar file and yet we can still use the docker layer cache.
 
 ### [bootrunner.sh](src/main/resources/defaultdocker/bootrunner.sh)
 ```bash
@@ -179,26 +232,29 @@ An alternative way to build a docker image from a Spring Boot jar file is to sim
 ADD build/libs/*.jar app.jar
 ```
 
-Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a Spring Boot self contained jar file in docker.  However, you can easily run into performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  
+Adding a jar like this and then running with a valid `ENTRYPOINT` command will work.  You will get all the benefits of running a Spring Boot self contained jar file in docker.  However, you can easily run into deployment performance issues in real projects once you start adding project dependencies and you need to do frequent builds and deploys.  
 
 Most of the builds and deploys only involve changes to your project code, yet each build has everything bundled into this one jar file.  In our simple demo case, the jar file is about 14 MB.  This can easily grow into an app that is 50,60,70MB or even bigger.  This can become taxing in docker environments where each time you build the docker image, the old layers stick around on the filesystem.  When the old layer is 70+ MB, it doesn't take too many of these to create storage issues.  The same issues exist on your docker repository and any server that needs to pull your docker image.  You are also likely to run into network bandwidth issues, especially when you need push your image to a remote repository.  
+
+## analyze layer sizes
 
 So lets run `docker history` on the demo app we just created
 
 ```bash
 $ docker history myorg/demo:latest
 IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
-01f75f34aa9d        12 seconds ago      /bin/sh -c #(nop)  ENTRYPOINT ["./bootrunn...   0B                  
-300f2ff8091f        13 seconds ago      /bin/sh -c #(nop)  ENV JAVA_OPTS=               0B                  
-8d8ed731c719        13 seconds ago      /bin/sh -c #(nop)  EXPOSE 8080/tcp              0B                  
-64ec2ea3268a        13 seconds ago      /bin/sh -c #(nop)  VOLUME [/tmp]                0B                  
-697d0320b75d        11 days ago         /bin/sh -c #(nop) ADD dir:db6fbd351c52ded7...   1.52kB              
-64a885e6caef        11 days ago         /bin/sh -c #(nop) ADD dir:71bd5358cd827da6...   14.5MB              
-4a57e6101ff4        2 weeks ago         /bin/sh -c #(nop)  USER [springboot]            0B                  
-1fee1d234dc7        2 weeks ago         /bin/sh -c #(nop) WORKDIR /home/springboot      0B                  
-da4ea7a7eb20        2 weeks ago         /bin/sh -c chmod 755 /home/springboot/boot...   982B                
-9dd4dab55288        2 weeks ago         /bin/sh -c #(nop) COPY file:abb8a517776eb8...   982B                
-3e1faa3289e4        4 weeks ago         /bin/sh -c adduser -D -s /bin/sh springboot     4.83kB              
+5cc3037194a5        3 seconds ago       /bin/sh -c #(nop)  ENTRYPOINT ["./bootrunn...   0B                  
+7a1e2fec4189        3 seconds ago       /bin/sh -c #(nop)  ENV JAVA_OPTS=               0B                  
+4214e22518fe        3 seconds ago       /bin/sh -c #(nop)  EXPOSE 8080/tcp              0B                  
+b942c798161e        3 seconds ago       /bin/sh -c #(nop)  VOLUME [/tmp]                0B                  
+9735a02f869e        4 seconds ago       /bin/sh -c #(nop) ADD dir:91434ba976e061d8...   1.52kB              
+84f35cdc7439        4 seconds ago       /bin/sh -c #(nop) ADD dir:0b68782be76612aa...   14.5MB              
+11df191b4d46        4 seconds ago       /bin/sh -c #(nop) ADD dir:e0c8bf46ad783f50...   0B                  
+37d0dc4f3956        13 days ago         /bin/sh -c #(nop)  USER [springboot]            0B                  
+ae18c86c921d        13 days ago         /bin/sh -c #(nop) WORKDIR /home/springboot      0B                  
+4792c1014667        13 days ago         /bin/sh -c chmod 755 /home/springboot/boot...   1.42kB              
+6c3811d286dd        13 days ago         /bin/sh -c #(nop) COPY file:b9865a259ab98d...   1.42kB              
+3e1faa3289e4        6 weeks ago         /bin/sh -c adduser -D -s /bin/sh springboot     4.83kB              
 c4f9d77cd2a1        3 months ago        /bin/sh -c set -x  && apk add --no-cache  ...   77.5MB              
 <missing>           3 months ago        /bin/sh -c #(nop)  ENV JAVA_ALPINE_VERSION...   0B                  
 <missing>           3 months ago        /bin/sh -c #(nop)  ENV JAVA_VERSION=8u131       0B                  
@@ -207,12 +263,100 @@ c4f9d77cd2a1        3 months ago        /bin/sh -c set -x  && apk add --no-cache
 <missing>           3 months ago        /bin/sh -c {   echo '#!/bin/sh';   echo 's...   87B                 
 <missing>           3 months ago        /bin/sh -c #(nop)  ENV LANG=C.UTF-8             0B                  
 <missing>           3 months ago        /bin/sh -c #(nop)  CMD ["/bin/sh"]              0B                  
-<missing>           3 months ago        /bin/sh -c #(nop) ADD file:4583e12bf5caec4...   3.97MB    
+<missing>           3 months ago        /bin/sh -c #(nop) ADD file:4583e12bf5caec4...   3.97MB              
+
+$ du -sk *
+4	bootrunner.sh
+48	classesLayer3
+4	commonServiceDependenciesLayer1
+14432	dependenciesLayer2
+4	Dockerfile
 ```
 
-This shows us the layers and sizes in our app.  Notice the 5th and 6th lines with `ADD` commands.  The top one is our application classes layer at 1KB and the bottom one is our dependencies 14MB.  Heuristically, Most builds will not involve changes to the dependencies so when you perform a docker build, docker can reuse this image layer from the [cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache).
+This shows us the layers and sizes in our app.  Notice the 5th and 6th lines with `ADD` commands.  The top one is our application classes layer at 1KB and the next one is our dependencies at 14MB.  Heuristically, Most builds will not involve changes to the dependencies so when you perform a docker build, docker can reuse this image layer from the [cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache).
 
-In my testing, a `docker push` went from taking more than 3 minutes to just 5 seconds when the cache is used.
+In lab testing, a `docker push` to a remote repository went from taking more than 3 minutes to just 5 seconds when the cache is used.
+
+## commonService
+
+Now lets add a `commonService` layer and rebuild:
+
+```bash
+$ cd ../..
+$ vi build.gradle
+```
+
+```groovy
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-web']
+}
+```
+
+```bash
+$ ./gradlew clean build
+$ cd build/docker
+$ docker build -t myorg/demo:latest .
+```
+
+Most of the jar files needed for this simple app have now moved to `build/docker/commonServicesDependenciesLayer1`
+
+```bash
+$ docker history myorg/demo:latest
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+2345d4f13ee0        17 minutes ago      /bin/sh -c #(nop)  ENTRYPOINT ["./bootrunn...   0B                  
+6c742d075d85        17 minutes ago      /bin/sh -c #(nop)  ENV JAVA_OPTS=               0B                  
+a795162b55b6        17 minutes ago      /bin/sh -c #(nop)  EXPOSE 8080/tcp              0B                  
+fee5a546ad92        17 minutes ago      /bin/sh -c #(nop)  VOLUME [/tmp]                0B                  
+278fd3c44ed7        17 minutes ago      /bin/sh -c #(nop) ADD dir:91434ba976e061d8...   1.52kB              
+8328a97e7fab        17 minutes ago      /bin/sh -c #(nop) ADD dir:701ec16546259e7e...   167kB               
+46fa0f2be79d        17 minutes ago      /bin/sh -c #(nop) ADD dir:96a430d362e1aee4...   14.4MB     
+...
+
+$ du -sk *
+4	bootrunner.sh
+48	classesLayer3
+14108	commonServiceDependenciesLayer1
+336	dependenciesLayer2
+4	Dockerfile
+```
+
+To see the impact of this layer, we need to [create a new project with the same commonService](#quickstart-with-a-new-demo-app)
+.  Even though you are creating an entirely new application, the new docker image will only need a small amount of extra storage. One way to see this is by looking at the `docker build` output for your new image:
+
+```bash
+$ docker build -t myorg/demo-manual-service2:latest .
+
+...
+Step 7/13 : ADD commonServiceDependenciesLayer1 /home/springboot/app/
+ ---> Using cache
+ ---> 46fa0f2be79d
+...
+```
+
+You can see this step of the docker build is re-using the same image layer `46fa0f2be79d` from our last build.
+
+Another way to see this is with the excellent [nate/dockviz](https://github.com/justone/dockviz) tool like this:
+
+```bash
+$ docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock nate/dockviz -t
+...
+│                 │ │       ├─46fa0f2be79d Virtual Size: 95.8 MB
+│                 │ │       │ └─8328a97e7fab Virtual Size: 96.0 MB
+│                 │ │       │   ├─278fd3c44ed7 Virtual Size: 96.0 MB
+│                 │ │       │   │ └─fee5a546ad92 Virtual Size: 96.0 MB
+│                 │ │       │   │   └─a795162b55b6 Virtual Size: 96.0 MB
+│                 │ │       │   │     └─6c742d075d85 Virtual Size: 96.0 MB
+│                 │ │       │   │       └─2345d4f13ee0 Virtual Size: 96.0 MB Tags: myorg/demo:latest
+│                 │ │       │   └─9d95ba4336e8 Virtual Size: 96.0 MB
+│                 │ │       │     └─f68618beaacd Virtual Size: 96.0 MB
+│                 │ │       │       └─8b20f5db1eb7 Virtual Size: 96.0 MB
+│                 │ │       │         └─5e9b065d02a9 Virtual Size: 96.0 MB
+│                 │ │       │           └─13f47ca03ecb Virtual Size: 96.0 MB Tags: myorg/demo-manual-service2:latest
+...
+
+```
+
+What we have here is two independent projects with their own source code and dependencies, but now these projects can share read-only jars that are common to both projects.
 
 # Build Docker Image with Gradle
 
@@ -281,7 +425,7 @@ Notice also that we are specifying an `inputDir` for `buildImage`.  `project.doc
 
 ### Use your own Dockerfile
 
-If you'd rather use your own `Dockerfile`, just copy it and any other static files you need in your docker image into `src/main/docker`.  You'll need to create this directory if it does not exist in your project.  If this plugin finds any files in this directory, it will copy those into the dockerBuildDirectory instead of the default `Dockerfile` and `bootrunner.sh`.  The plugin will still create the docker layer directories so you might want to use the default [Dockerfile](src/main/resources/defaultdocker/Dockerfile) as a guide.
+If you'd rather use your own `Dockerfile`, just copy it and any other static files you need in your docker image into `src/main/docker`.  You'll need to create this directory if it does not exist in your project.  If this plugin finds any files in this directory, it will copy those into the dockerBuildDirectory instead of the default `Dockerfile` and `bootrunner.sh`.  The plugin will still create the docker layer directories in `build/docker/` so you might want to use the default [Dockerfile](src/main/resources/defaultdocker/Dockerfile) as a guide.
 
 ### Use a custom location for Dockerfile
 
