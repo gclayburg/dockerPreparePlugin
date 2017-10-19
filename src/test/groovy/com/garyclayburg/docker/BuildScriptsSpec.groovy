@@ -927,6 +927,81 @@ docker {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
+    def 'interop with se.transmode.gradle:gradle-docker'(){
+        given:
+        buildFile << """
+buildscript {
+	ext {
+		springBootVersion     = "1.5.6.RELEASE"
+		gradleDockerVersion   = "1.2"
+	}
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:\${springBootVersion}")
+		classpath("se.transmode.gradle:gradle-docker:\${gradleDockerVersion}")
+	}
+}
+
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+}
+
+apply plugin: "java"
+apply plugin: "application"
+apply plugin: "eclipse"
+apply plugin: "org.springframework.boot"
+apply plugin: 'docker'
+
+compileJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+    mainClassName       = "com.hudsonmendes.microservice1.AppEntry"
+}
+
+jar {
+    baseName = "api-films"
+    group    = "com.hudsonmendes"
+    version  = "0.0.1-SNAPSHOT"
+    manifest { attributes "Main-Class": "com.hudsonmendes.microservice1.AppEntry" }
+}
+
+//docker {
+//    baseImage "frolvlad/alpine-oraclejdk8:slim"
+//    maintainer 'NA'
+//}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile("org.springframework.boot:spring-boot-starter-web")
+	testCompile("org.springframework.boot:spring-boot-starter-test")
+}
+
+task buildDocker(type: Docker, dependsOn: 'dockerLayerPrepare'){
+  applicationName = jar.baseName
+  dockerfile = file("\${dockerprepare.dockerBuildDirectory}/Dockerfile")
+  tag = 'example/exampleapp'
+  tagVersion = 'latest'
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('buildDocker', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println result.getOutput()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+//        result.task(':dockerLayerPrepare').outcome == SUCCESS
+//        result.task(':expandBootJar').outcome == SUCCESS
+    }
+
     def 'apply dockerprepare with DockerBuildImage'() {
         given:
         buildFile << """
