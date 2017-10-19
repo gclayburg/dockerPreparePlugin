@@ -991,7 +991,7 @@ task buildDocker(type: Docker, dependsOn: 'dockerLayerPrepare'){
         when:
         BuildResult result = GradleRunner.create()
                 .withProjectDir(testProjectDir.root)
-                .withArguments('buildDocker', '--stacktrace', '--info')
+                .withArguments('build', '--stacktrace', '--info')
                 .withPluginClasspath()
                 .build()
         println result.getOutput()
