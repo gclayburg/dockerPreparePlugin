@@ -153,7 +153,8 @@ class DockerPreparePlugin implements Plugin<Project> {
                 }
             } else{
                 assert project.bootJar instanceof Jar
-                if (project.bootJar.getLaunchScript().isIncluded()){
+                def script = project.bootJar.getLaunchScript()
+                if (script != null && script.isIncluded()){
                     throw new IllegalStateException("dockerprepare cannot prepare spring boot 2 jar/war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
                 }
             }
