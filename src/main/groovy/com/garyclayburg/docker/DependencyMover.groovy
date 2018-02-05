@@ -19,6 +19,8 @@
 package com.garyclayburg.docker
 
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.artifacts.ResolvedArtifact
 
 /**
  * <br><br>
@@ -47,6 +49,30 @@ class DependencyMover {
             project.ant.move(file: settings.dockerBuildDependenciesDirectory + partialPath + commonJarFile.name,
                     tofile: settings.commonServiceDependenciesDirectory + partialPath + commonJarFile.name)
         }
+    }
+
+    void moveProjectJars(String configurationName, String partialPath){
+        findDependentProjectJars(configurationName).each { projectJarFile ->
+            String dependentProjectJar = settings.dockerBuildDependenciesDirectory + partialPath + projectJarFile.name
+            project.getLogger().info('moving dependent project jar to classes layer: '+dependentProjectJar)
+            project.ant.move(file: dependentProjectJar,
+                    tofile: settings.dockerBuildClassesDirectory + partialPath +projectJarFile.name)
+        }
+
+    }
+
+    private Set<File> findDependentProjectJars(String configurationName) {
+        Set<File> projectfiles = []
+        project.configurations.getByName(configurationName).allDependencies.findAll { dep ->
+            dep instanceof ProjectDependency
+        }.each { projectdep ->
+            ResolvedArtifact depArtifact = project.configurations.getByName(configurationName).resolvedConfiguration.resolvedArtifacts.find {
+                return it.name == projectdep.name && it.moduleVersion.id.group == projectdep.group
+            }
+            project.getLogger().info(" dependent project jar file found: " + depArtifact?.file)
+            projectfiles.add(depArtifact?.file)
+        }
+        projectfiles
     }
 
     void moveWar(String configurationName){
@@ -78,6 +104,7 @@ class DependencyMover {
     private Set<File> matchJars(String configurationName) {
         project.configurations.getByName(configurationName).files { providedRuntimeDependency ->
             def groupname = providedRuntimeDependency.group + ":" + providedRuntimeDependency.name
+            project.getLogger().info("matchJars checking: $providedRuntimeDependency")
             def matchedDep = settings.commonService?.contains(groupname)
             if (matchedDep) {
                 foundDependencies.add(groupname)

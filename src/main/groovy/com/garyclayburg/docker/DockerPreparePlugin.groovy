@@ -124,6 +124,7 @@ class DockerPreparePlugin implements Plugin<Project> {
     private void moveCommonJar() {
         DependencyMover dm = new DependencyMover(settings: settings,project: project)
         dm.move('runtime','/BOOT-INF/lib/')
+        dm.moveProjectJars('runtime', '/BOOT-INF/lib/')
         dm.check()
     }
 
@@ -131,6 +132,7 @@ class DockerPreparePlugin implements Plugin<Project> {
         DependencyMover dm = new DependencyMover(settings: settings,project: project)
         dm.move('providedRuntime','/WEB-INF/lib-provided/')
         dm.moveWar('runtime')
+        dm.moveProjectJars('runtime', '/WEB-INF/lib/')
         dm.check()
     }
 

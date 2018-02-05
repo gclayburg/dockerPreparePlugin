@@ -76,7 +76,6 @@ class DockerplugindemoApplication {
         mainclass << contents
     }
 
-
     def 'bootRepackage by itself works'() {
         given:
         buildFile << """
@@ -133,6 +132,70 @@ plugins {
 
 apply plugin: 'groovy'
 apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dockerprepare{
+  	dockerBuildDirectory "\${project.buildDir}/docker"
+	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
+
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('dockerLayerPrepare', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        File bootrunner = new File(testProjectDir.root.toString() + "/build/docker/bootrunner.sh")
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+        bootrunner.exists()
+    }
+
+    def 'apply dockerprepare to vanilla build without plugins block'() {
+        /*
+        arguably not a "real" test since this downloads a specific plugins from the gradle repo and executes them.
+        This test does not test anything in this codebase, but it does test the syntax of specifying the gradle plugin without the plugins block and that the download is successful.
+         */
+        given:
+        buildFile << """
+buildscript {
+	ext {
+		springBootVersion = '1.5.6.RELEASE'
+	}
+	repositories {
+        maven {
+          url "https://plugins.gradle.org/m2/"
+        }
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:\${springBootVersion}")
+        classpath("gradle.plugin.com.garyclayburg:dockerPreparePlugin:1.1.1")
+	}
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'com.garyclayburg.dockerprepare'
 
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = 1.8
