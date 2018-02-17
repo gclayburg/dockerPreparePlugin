@@ -29,8 +29,28 @@ import org.gradle.api.tasks.Copy
 import org.gradle.jvm.tasks.Jar
 
 /**
- * <br><br>
- * Created 2017-09-03 17:36
+ * <br>
+ * Prepares a <a href="https://projects.spring.io/spring-boot/">Spring Boot</a> application for deployment in a docker container<br>
+ * <h3>Features:</h3>
+ * <ul>
+ *     <li> splits Spring Boot jar or war into docker cache-friendly layers
+ *     <li> includes default Dockerfile that is fast, efficient and secure
+ *     <li> application running in docker will honor OS signals like SIGQUIT
+ *     <li> application running in docker can process command line parameters:
+ *     <pre>
+ *   docker run registry:5000/multiprojectdemo:1.0 --info.app.name="widget instance 1"
+ *       </pre>
+ * </ul>
+ *
+ * The defaults can be overridden with an optional {@link DockerPreparePluginExt dockerprepare} block:
+ * <pre>
+ *    dockerprepare {
+ *      commonService = ['org.springframework.boot:spring-boot-starter-web','org.springframework.boot:spring-boot-starter-actuator']
+ *    }
+ *     </pre>
+ *
+ *
+ *  More details on <a href="https://github.com/gclayburg/dockerPreparePlugin">github</a>
  *
  * @author Gary Clayburg
  */
@@ -58,12 +78,12 @@ class DockerPreparePlugin implements Plugin<Project> {
             def warT = getWarTask(afterevalproject)
             def expandBootJarTask = afterevalproject.task(EXPAND_BOOT_JAR) {
                 inputs.files {
-                    warT != null ? [jarTask.archivePath,warT.archivePath] :[jarTask.archivePath]
+                    warT != null ? [jarTask.archivePath, warT.archivePath] : [jarTask.archivePath]
                 }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
                     File jarfile = project.file(jarTask.archivePath)
-                    if (jarfile.exists()){
+                    if (jarfile.exists()) {
                         getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
                         //in some projects, jar.archivePath may change after bootRepackage is executed.
                         // It might be one value during configure, but another after bootRepackage.
@@ -87,7 +107,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                             warTask = afterevalproject.tasks.getByName('war')
                             File warfile = project.file(warTask.archivePath)
 
-                            if (warfile.exists()){
+                            if (warfile.exists()) {
                                 getLogger().info("war file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${warTask.archivePath}")
                                 //in some projects, jar.archivePath may change after bootRepackage is executed.
                                 // It might be one value during configure, but another after bootRepackage.
@@ -103,7 +123,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                                     exclude "WEB-INF/lib*/**"
                                 }
                                 moveCommonWar()
-                            } else{
+                            } else {
                                 getLogger().error("no war file or jar file found to prepare for Docker")
                             }
                         } catch (UnknownTaskException ignore) {
@@ -122,15 +142,15 @@ class DockerPreparePlugin implements Plugin<Project> {
     }
 
     private void moveCommonJar() {
-        DependencyMover dm = new DependencyMover(settings: settings,project: project)
-        dm.move('runtime','/BOOT-INF/lib/')
+        DependencyMover dm = new DependencyMover(settings: settings, project: project)
+        dm.move('runtime', '/BOOT-INF/lib/')
         dm.moveProjectJars('runtime', '/BOOT-INF/lib/')
         dm.check()
     }
 
     private void moveCommonWar() {
-        DependencyMover dm = new DependencyMover(settings: settings,project: project)
-        dm.move('providedRuntime','/WEB-INF/lib-provided/')
+        DependencyMover dm = new DependencyMover(settings: settings, project: project)
+        dm.move('providedRuntime', '/WEB-INF/lib-provided/')
         dm.moveWar('runtime')
         dm.moveProjectJars('runtime', '/WEB-INF/lib/')
         dm.check()
@@ -140,8 +160,8 @@ class DockerPreparePlugin implements Plugin<Project> {
         def springBootExtension
         project.getLogger().info('checking springboot execution')
         springBootExtension = project.extensions.findByName('springBoot')
-        if (springBootExtension != null){
-            if (!usingSpringBoot2API){
+        if (springBootExtension != null) {
+            if (!usingSpringBoot2API) {
                 /*
                 This is an attempt for this project to be as flexible as possible.
                  We only need a few things from the spring boot gradle plugin, so we
@@ -150,17 +170,17 @@ class DockerPreparePlugin implements Plugin<Project> {
                 This part may be a little fragile, but it is probably better than
                  this project depending on a specific version of Spring Boot.
                  */
-                if (springBootExtension.isExecutable()){
+                if (springBootExtension.isExecutable()) {
                     throw new IllegalStateException("dockerprepare cannot prepare jar/war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
                 }
-            } else{
+            } else {
                 assert project.bootJar instanceof Jar
                 def script = project.bootJar.getLaunchScript()
-                if (script != null && script.isIncluded()){
+                if (script != null && script.isIncluded()) {
                     throw new IllegalStateException("dockerprepare cannot prepare spring boot 2 jar/war file that is executable.  See https://github.com/gclayburg/dockerPreparePlugin#user-content-errors")
                 }
             }
-        } else{
+        } else {
             throw new IllegalStateException("springBoot extension not found")
         }
 
