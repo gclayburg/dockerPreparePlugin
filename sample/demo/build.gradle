@@ -1,54 +1,40 @@
-buildscript {
-	ext {
-		springBootVersion = '1.5.7.RELEASE'
-	}
-	repositories {
-		mavenCentral()
-	}
-	dependencies {
-		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
-	}
-}
-
 plugins {
-	id 'com.garyclayburg.dockerprepare' version '1.1.0'
-	id "com.bmuschko.docker-remote-api" version "3.1.0"
+    id 'org.springframework.boot' version '1.5.10.RELEASE'
+    id 'com.garyclayburg.dockerprepare' version '1.2.1'
+    id "com.bmuschko.docker-remote-api" version "3.1.0"
+    id 'java'
+    id 'eclipse'
 }
-
-
-apply plugin: 'java'
-apply plugin: 'eclipse'
-apply plugin: 'org.springframework.boot'
 
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = 1.8
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dockerprepare {
-  commonService = ['org.springframework.boot:spring-boot-starter-web']
+    commonService = ['org.springframework.boot:spring-boot-starter-web']
 }
 
 dependencies {
-	compile('org.springframework.boot:spring-boot-starter-web')
-	testCompile('org.springframework.boot:spring-boot-starter-test')
+    compile('org.springframework.boot:spring-boot-starter-web')
+    testCompile('org.springframework.boot:spring-boot-starter-test')
 }
-def dockerImageName = 'myorg/'+project.name
+def dockerImageName = 'myorg/' + project.name
 
 task buildImage(type: com.bmuschko.gradle.docker.tasks.image.DockerBuildImage, dependsOn: 'dockerLayerPrepare') {
-	description = "build and tag a Docker Image"
-	inputDir = project.file(project.dockerprepare.dockerBuildDirectory)
-	tags = [dockerImageName+':latest',dockerImageName+':' +version]
+    description = "build and tag a Docker Image"
+    inputDir = project.file(dockerprepare.dockerBuildDirectory)
+    tags = [dockerImageName + ':latest', dockerImageName + ':' + version]
 }
 
 task pushVersion(type: com.bmuschko.gradle.docker.tasks.image.DockerPushImage, dependsOn: buildImage) {
-	description = "docker push <imageName>:<version>"
-	imageName = dockerImageName + ":" + version
+    description = "docker push <imageName>:<version>"
+    imageName = dockerImageName + ":" + version
 }
 
 task pushLatest(type: com.bmuschko.gradle.docker.tasks.image.DockerPushImage, dependsOn: buildImage) {
-	description = "docker push <imageName>:latest"
-	imageName = dockerImageName + ":latest"
+    description = "docker push <imageName>:latest"
+    imageName = dockerImageName + ":latest"
 }
