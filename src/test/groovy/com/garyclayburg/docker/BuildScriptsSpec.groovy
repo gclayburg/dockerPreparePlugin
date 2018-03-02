@@ -697,7 +697,7 @@ dependencies {
         buildFile << """
 buildscript {
 	ext {
-		springBootVersion = '2.0.0.M3'
+		springBootVersion = '2.0.0.RELEASE'
 	}
 	repositories {
 	    jcenter()
@@ -725,6 +725,45 @@ repositories {
 	mavenCentral()
 	maven { url "https://repo.spring.io/snapshot" }
 	maven { url "https://repo.spring.io/milestone" }
+}
+
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+    }
+    def 'spring boot 2 as plugin'() {
+        given:
+        buildFile << """
+plugins {
+    id 'org.springframework.boot' version '2.0.0.RELEASE'
+    id 'com.garyclayburg.dockerprepare'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+apply plugin: 'io.spring.dependency-management'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
 }
 
 
