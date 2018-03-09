@@ -1,0 +1,57 @@
+/* dockerprepare example using
+  - palantir docker gradle plugin
+  - "apply plugin:" gradle configuration style
+  - spring boot 2.0
+
+  Create layered image:
+  $ ./gradlew clean build docker
+
+  run docker image:
+  $ docker run --rm acmeinc/demo
+*/
+
+buildscript {
+	repositories {
+		mavenCentral()
+		maven {
+			url "https://plugins.gradle.org/m2/"
+		}
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.0.RELEASE")
+		classpath("gradle.plugin.com.palantir.gradle.docker:gradle-docker:0.19.2")
+		classpath("gradle.plugin.com.garyclayburg:dockerPreparePlugin:1.2.1")
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'com.palantir.docker'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+version = '0.0.1-SNAPSHOT'
+group = 'acmeinc'
+sourceCompatibility = 1.8
+
+dockerprepare {
+	dockerBuildDirectory "${project.buildDir}/dockerlayers"
+}
+
+docker {
+	name "${project.group}/${jar.baseName}"
+	files "${dockerprepare.dockerBuildDirectory}"
+	dockerfile file("${dockerprepare.dockerBuildDirectory}/Dockerfile")
+	dependsOn  build
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-web')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
