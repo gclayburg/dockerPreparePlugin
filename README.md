@@ -22,7 +22,7 @@ To use this, add this snippet to your build.gradle file or use the example at [s
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.3.1"
+  id "com.garyclayburg.dockerprepare" version "1.3.2"
 }
 ```
 The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
@@ -85,7 +85,7 @@ This layer is created automatically by this plugin.  It contains all dependent j
 
 ### build/docker/classesLayer3/
 
-This layer is created automatically by this plugin. It contains everything else isn't in `build/docker/commonServiceDependenciesLayer1` or `build/docker/dependenciesLayer2`
+This layer is created automatically by this plugin. It contains everything else that isn't in `build/docker/commonServiceDependenciesLayer1` or `build/docker/dependenciesLayer2`
 
 # Quickstart with a new demo app
 
@@ -120,13 +120,13 @@ Notice the output generated when we stopped the app.  Our ctrl-c on the terminal
 
 This is just a simple Spring Boot application that runs an embedded Tomcat server with our simple app along with all its dependencies.  Everything we need is in this one jar file - well everything except the JVM to run it and supporting OS libraries.  Docker to the rescue!  
 
-## adding the preparedocker plugin
+## adding the dockerprepare plugin
 What we want to do now is take this app and bundle it inside a docker container with the JVM and everything the JVM needs.  
 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.3.1"
+  id "com.garyclayburg.dockerprepare" version "1.3.2"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
@@ -444,6 +444,27 @@ dockerprepare{
 	dockerSrcDirectory "${project.rootDir}/mydockersrc"
 }
 ```
+
+### Use alternative Dockerfile as default
+
+New in version 1.3.2, you can specify an alternative Dockerfile Set instead of creating your own and copying them between projects.  It is configured like this:
+
+```groovy
+dockerprepare{
+	dockerfileSet '8u151-jre-alpine-buildlabels'
+}
+```
+
+This will grab the [bundled Dockerfile and bootrunner.sh](src/main/resources/8u151-jre-alpine-buildlabels)
+
+Or
+
+```groovy
+dockerprepare{
+	dockerfileSet '90111-jre-sid-buildlabels'
+}
+```
+to try your build with a [Java 9 based Dockerfile](src/main/resources/90111-jre-sid-buildlabels)
 
 Check out [Memuser](https://github.com/gclayburg/memuser) for an example of a customized project
 

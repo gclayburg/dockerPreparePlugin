@@ -238,6 +238,33 @@ documentation to work in a variety of cases
      */
     List<String> commonService = []
 
+    /**
+     * Instead of using the default {@code Dockerfile} and {@code bootrunner.sh}, you can specify a different
+     * pre-packaged {@code Dockerfile} and {@code bootrunner.sh}:
+     *
+     * <br><br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/90111-jre-sid-buildlabels">90111-jre-sid-buildlabels</a>
+     * <pre>
+     *     dockerfileSet = '90111-jre-sid-buildlabels'
+     * </pre>
+     *
+     * <br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/8u151-jre-alpine-buildlabels">8u151-jre-alpine-buildlabels</a>
+     * <pre>
+     *     dockerfileSet = '8u151-jre-alpine-buildlabels'
+     * </pre>
+     *
+     * <br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/defaultdocker">defaultdocker</a>
+     * <pre>
+     *     dockerfileSet = 'defaultdocker'
+     * </pre>
+     *
+     * If not specified, the {@code Dockerfile} and {@code bootrunner.sh} file from the dockerfileSet defaultdocker will be used, unless you also have files in {@link #dockerSrcDirectory}
+
+     */
+    String dockerfileSet
+
     DockerPreparePluginExt(Project project) {
         this.project = project
     }
@@ -361,4 +388,61 @@ documentation to work in a variety of cases
         this.commonServiceDependenciesDirectory = dockerBuildDirectory + "/commonServiceDependenciesLayer1"
     }
 
+    /**
+     * Instead of using the default {@code Dockerfile} and {@code bootrunner.sh}, you can specify a different
+     * pre-packaged {@code Dockerfile} and {@code bootrunner.sh}:
+     *
+     * <br><br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/90111-jre-sid-buildlabels">90111-jre-sid-buildlabels</a>
+     * <pre>
+     *     dockerfileSet = '90111-jre-sid-buildlabels'
+     * </pre>
+     *
+     * <br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/8u151-jre-alpine-buildlabels">8u151-jre-alpine-buildlabels</a>
+     * <pre>
+     *     dockerfileSet = '8u151-jre-alpine-buildlabels'
+     * </pre>
+     *
+     * <br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/defaultdocker">defaultdocker</a>
+     * <pre>
+     *     dockerfileSet = 'defaultdocker'
+     * </pre>
+     *
+     * If not specified, the {@code Dockerfile} and {@code bootrunner.sh} file from the dockerfileSet defaultdocker will be used, unless you also have files in {@link #dockerSrcDirectory}
+
+     */
+    void setDockerfileSet(String dockerfileSet){
+        this.dockerfileSet(dockerfileSet)
+    }
+
+    /**
+     * Instead of using the default {@code Dockerfile} and {@code bootrunner.sh}, you can specify a different
+     * pre-packaged {@code Dockerfile} and {@code bootrunner.sh}:
+     *
+     * <br><br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/90111-jre-sid-buildlabels">90111-jre-sid-buildlabels</a>
+     * <pre>
+     *     dockerfileSet = '90111-jre-sid-buildlabels'
+     * </pre>
+     *
+     * <br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/8u151-jre-alpine-buildlabels">8u151-jre-alpine-buildlabels</a>
+     * <pre>
+     *     dockerfileSet = '8u151-jre-alpine-buildlabels'
+     * </pre>
+     *
+     * <br>
+     * To use files from <a href="https://github.com/gclayburg/dockerPreparePlugin/tree/master/src/main/resources/defaultdocker">defaultdocker</a>
+     * <pre>
+     *     dockerfileSet = 'defaultdocker'
+     * </pre>
+     *
+     * If not specified, the {@code Dockerfile} and {@code bootrunner.sh} file from the dockerfileSet defaultdocker will be used, unless you also have files in {@link #dockerSrcDirectory}
+
+     */
+    void dockerfileSet(String dockerfileset){
+        this.dockerfileSet = dockerfileset
+    }
 }

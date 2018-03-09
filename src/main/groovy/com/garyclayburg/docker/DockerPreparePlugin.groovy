@@ -190,6 +190,7 @@ class DockerPreparePlugin implements Plugin<Project> {
         settings = project.extensions.create(DOCKERPREPARE_EXTENSION, DockerPreparePluginExt, project)
         settings.dockerSrcDirectory = "${project.rootDir}/src/main/docker"
         settings.dockerBuildDirectory = "${project.buildDir}/docker"
+        settings.dockerfileSet = "defaultdocker"
         settings
     }
 
@@ -206,8 +207,10 @@ class DockerPreparePlugin implements Plugin<Project> {
                 [settings.dockerBuildDirectory + "/Dockerfile", settings.dockerBuildDirectory + "/bootrunner.sh"]
             }
             doLast {
-                def dockerstream = this.getClass().getResourceAsStream('/defaultdocker/Dockerfile')
-                def bootrunnerstream = this.getClass().getResourceAsStream('/defaultdocker/bootrunner.sh')
+                def dockerfile = "/${settings.dockerfileSet}/Dockerfile"
+                def bootrunnerfile = "/${settings.dockerfileSet}/bootrunner.sh"
+                def dockerstream = this.getClass().getResourceAsStream(dockerfile)
+                def bootrunnerstream = this.getClass().getResourceAsStream(bootrunnerfile)
                 if (dockerstream != null && bootrunnerstream != null) {
                     getLogger().info "Copy opinionated default Dockerfile and bootrunner.sh into ${settings.dockerBuildDirectory} "
                     project.mkdir(settings.dockerBuildDirectory)
@@ -218,11 +221,12 @@ class DockerPreparePlugin implements Plugin<Project> {
                       2. testing via gradle test kit where Dockerfile is a normal file on the classpath
                      */
                 } else {
-                    getLogger().error('Cannot copy opinionated default Dockerfile and bootrunner.sh')
+                    getLogger().error("Cannot copy opinionated default Dockerfile and bootrunner.sh from classpath \n  ${dockerfile}\n  ${bootrunnerfile}")
                     project.buildscript.configurations.classpath.findAll {
                         getLogger().error "classpath entry ${it.path}"
                     }
                     printDir(project.buildDir.getPath(), getLogger())
+                    throw new IllegalStateException('Cannot copy opinionated default Dockerfile and bootrunner.sh')
                 }
             }
         }.onlyIf {
