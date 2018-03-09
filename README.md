@@ -44,6 +44,12 @@ $ docker build -t demoapp:latest .
 
 Thats it!  You now have a efficient, streamlined docker image of your Spring Boot app that you can run.  The next build you perform will be much faster since it uses the [docker cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) as much as possible. 
 
+## Automating the docker build
+Be sure to check out the samples for examples of integrating this with other gradle plugins that automate the creating of the docker image:
+
+* [Spring boot 1.5.10 and com.bmuschko.docker-remote-api docker plugin](sample/demo)
+* [Spring boot 2.0 and com.palantir.docker docker plugin](sample20/demo)
+* [Using in a multi-project gradle build](sample-multiproject)
 # What is in the layers?
 
 This plugin runs in the gradle execution phase after Spring Boot creates your jar or war file.  It splits this application into 3 layers to maximize the chance of docker cache hits.
