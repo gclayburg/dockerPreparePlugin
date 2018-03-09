@@ -1,6 +1,6 @@
-FROM openjdk:8u131-jre-alpine
+FROM openjdk:8u151-jre-alpine
 # We choose this base image because:
-# 1. it is the latest Java 8 version on alpine as of September 2017
+# 1. it is the latest Java 8 version on alpine as of March 2018
 # 2. jre-alpine instead of jdk-alpine is much smaller but still enough to
 #    run most microservice applications on the JVM
 # 3. jre-alpine has a smaller security footprint than other official Java docker images
@@ -41,5 +41,6 @@ ADD classesLayer3/ /home/springboot/app/
 
 VOLUME /tmp
 EXPOSE 8080
-ENV JAVA_OPTS=""
+ENV JAVA_OPTS="" \
+    SPRING_OUTPUT_ANSI_ENABLED=ALWAYS
 ENTRYPOINT ["./bootrunner.sh"]

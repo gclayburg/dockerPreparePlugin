@@ -20,7 +20,7 @@ buildscript {
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.0.RELEASE")
 		classpath("gradle.plugin.com.palantir.gradle.docker:gradle-docker:0.19.2")
-		classpath("gradle.plugin.com.garyclayburg:dockerPreparePlugin:1.2.1")
+		classpath("gradle.plugin.com.garyclayburg:dockerPreparePlugin:1.3.1")
 	}
 }
 

@@ -22,7 +22,7 @@ To use this, add this snippet to your build.gradle file or use the example at [s
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.2.1"
+  id "com.garyclayburg.dockerprepare" version "1.3.1"
 }
 ```
 The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
@@ -126,7 +126,7 @@ What we want to do now is take this app and bundle it inside a docker container 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.2.1"
+  id "com.garyclayburg.dockerprepare" version "1.3.1"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
@@ -143,9 +143,9 @@ These files were created by this `dockerprepare` plugin.  Lets take a look at th
 
 ### [Dockerfile](src/main/resources/defaultdocker/Dockerfile)
 ```dockerfile
-FROM openjdk:8u131-jre-alpine
+FROM openjdk:8u151-jre-alpine
 # We choose this base image because:
-# 1. it is the latest Java 8 version on alpine as of September 2017
+# 1. it is the latest Java 8 version on alpine as of March 2018
 # 2. jre-alpine instead of jdk-alpine is much smaller but still enough to
 #    run most microservice applications on the JVM
 # 3. jre-alpine has a smaller security footprint than other official Java docker images
