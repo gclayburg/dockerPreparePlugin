@@ -464,9 +464,12 @@ dockerprepare{
 	dockerfileSet '90111-jre-sid-buildlabels'
 }
 ```
-to try your build with a [Java 9 based Dockerfile](src/main/resources/90111-jre-sid-buildlabels)
+to try your build with a [Java 9 based Dockerfile](src/main/resources/90111-jre-sid-buildlabels). 
+**Note:** This image is based on Debian linux and is quite large compared to the alpine based openjdk docker images. 
 
 Check out [Memuser](https://github.com/gclayburg/memuser) for an example of a customized project
+
+Have an idea for a better Dockerfile for spring boot?  Open a PR!
 
 # Errors
 
