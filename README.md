@@ -471,6 +471,25 @@ Check out [Memuser](https://github.com/gclayburg/memuser) for an example of a cu
 
 Have an idea for a better Dockerfile for spring boot?  Open a PR!
 
+# Optimizing
+
+On large projects with several nested dependencies, you may want to disable timestamps during jar file creation to improve the docker cache hit rate:
+
+```
+jar {
+    /*
+    Without this option, gradle will build a yourproject.jar file with a checksum that is
+     different each time, even if the contents are identical. This is because the zip file
+     format that jar is based on contains a last modified date and a manifest is generated
+     for each new jar created.  We want the checksum of the jar file with identical
+     contents to be identical so that the docker image created on projects depending on this
+     jar have the opportunity to take advantage of the docker build cache.  We don't want
+     the mere presence of a timestamp on a manifest file to completely invalidate the docker
+     cache on an otherwise identical set of dependencies.
+    */
+    preserveFileTimestamps = false
+}
+```
 # Errors
 
 ### dockerprepare cannot prepare war file that is executable
