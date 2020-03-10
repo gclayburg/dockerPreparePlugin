@@ -169,6 +169,61 @@ dependencies {
         bootrunner.exists()
     }
 
+    def 'apply dockerprepare to build with custom jar'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dockerprepare{
+  	dockerBuildDirectory "\${project.buildDir}/docker"
+	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
+
+}
+
+jar {
+    enabled = true
+}
+
+bootRepackage {
+    classifier = 'boot'
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('dockerLayerPrepare', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        File bootrunner = new File(testProjectDir.root.toString() + "/build/docker/bootrunner.sh")
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+        bootrunner.exists()
+    }
+
     def 'apply dockerprepare to vanilla build without plugins block'() {
         /*
         arguably not a "real" test since this downloads a specific plugins from the gradle repo and executes them.
@@ -402,6 +457,66 @@ dependencies {
         count == 30
     }
 
+    def 'apply dockerprepare with commonService and dual custom jars'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-web']
+}
+
+jar {
+    enabled = true //also build the standard, non-spring boot runnable jar
+}
+
+bootRepackage {
+    classifier = 'boot' //add 'boot' to executable jar file name
+}
+
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+
+        def count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/BOOT-INF/lib')
+                .listFiles().size()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+
+        count == 30
+    }
+
     def 'apply dockerprepare with commonService bogus dependency'() {
         given:
         buildFile << """
@@ -472,6 +587,79 @@ configurations {
 
 dockerprepare {
   commonService = ['org.springframework.boot:spring-boot-starter-tomcat','org.springframework.boot:spring-boot-starter-web']
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-actuator')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.codehaus.groovy:groovy')
+	runtime('org.springframework.boot:spring-boot-devtools')
+	providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+"""
+        when:
+        BuildResult result = GradleRunner.create()
+                .withProjectDir(testProjectDir.root)
+                .withArguments('build', '--stacktrace', '--info')
+                .withPluginClasspath()
+                .build()
+        println "build output is:"
+        println result.output
+        def count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib-provided')
+                .listFiles().size()
+
+        then:
+        result.output.contains('SUCCESSFUL')
+        result.task(':dockerLayerPrepare').outcome == SUCCESS
+        result.task(':expandBootJar').outcome == SUCCESS
+        count == 4
+
+        when:
+        count = new File(testProjectDir.root,
+                'build/docker/commonServiceDependenciesLayer1/WEB-INF/lib')
+                .listFiles().size()
+
+        then:
+        count == 26
+    }
+
+    def 'commonservice war file with custom jar'() {
+        given:
+        buildFile << """
+plugins {
+    id 'com.garyclayburg.dockerprepare'
+    id 'org.springframework.boot' version '1.5.6.RELEASE'
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'war'
+apply plugin: 'com.garyclayburg.dockerprepare'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	providedRuntime
+}
+
+dockerprepare {
+  commonService = ['org.springframework.boot:spring-boot-starter-tomcat','org.springframework.boot:spring-boot-starter-web']
+}
+
+jar {
+    enabled = true //also build the standard, non-spring boot runnable jar
+}
+
+bootRepackage {
+    classifier = 'boot' //add 'boot' to executable jar file name
 }
 
 dependencies {

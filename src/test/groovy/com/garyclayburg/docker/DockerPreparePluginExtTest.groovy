@@ -30,6 +30,24 @@ class DockerPreparePluginExtTest extends Specification {
     def "DockerSrcDirectory"() {
     }
 
+    def 'check bootRepackaged'(File inputjar,String classifier,File outputjar) {
+        expect:
+        DockerPreparePlugin.insertClassifier(inputjar,classifier).path == outputjar.path
+
+        where:
+        inputjar                         | classifier | outputjar
+        new File('/tmp/foo.jar')         | 'boot'     | new File('/tmp/foo-boot.jar')
+        new File('/tmp/foojar.jar')      | 'boot'     | new File('/tmp/foojar-boot.jar')
+        new File('/tmp/foo.jar')         | 'boot-oot'| new File('/tmp/foo-boot-oot.jar')
+        new File('/tmp/foo.jar')         | null       | new File('/tmp/foo.jar')
+        new File('/tmp/nested/foo.jar')  | 'boot'     | new File('/tmp/nested/foo-boot.jar')
+        new File('//tmp/nested/foo.jar') | 'boot'     | new File('//tmp/nested/foo-boot.jar')
+        new File('/tmp/foo.war')         | 'boot'     | new File('/tmp/foo-boot.war')
+        new File('/tmp/foo.bar')         | 'boot'     | new File('/tmp/foo.bar') //garbage in, garbage out
+        new File('/tmp/foowar')          | 'boot'     | new File('/tmp/foowar') //garbage in, garbage out
+        new File('./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT.jar') | 'boot' | new File('./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT-boot.jar')
+    }
+
     def "create extension"(){
         when:
         DockerPreparePluginExt extension = new DockerPreparePluginExt()

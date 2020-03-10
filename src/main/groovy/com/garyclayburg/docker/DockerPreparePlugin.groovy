@@ -77,25 +77,26 @@ class DockerPreparePlugin implements Plugin<Project> {
             def jarTask = afterevalproject.tasks.getByName('jar')
             def warT = getWarTask(afterevalproject)
             def expandBootJarTask = afterevalproject.task(EXPAND_BOOT_JAR) {
+                File jarArchivePath = insertClassifier(jarTask.archivePath,bootRepackageTask.classifier)
                 inputs.files {
-                    warT != null ? [jarTask.archivePath, warT.archivePath] : [jarTask.archivePath]
+                    warT != null ? [jarArchivePath, insertClassifier(warT.archivePath,bootRepackageTask.classifier)] : [jarArchivePath]
                 }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
-                    File jarfile = project.file(jarTask.archivePath)
+                    File jarfile = project.file(jarArchivePath)
                     if (jarfile.exists()) {
-                        getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarTask.archivePath}")
+                        getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarArchivePath}")
                         //in some projects, jar.archivePath may change after bootRepackage is executed.
                         // It might be one value during configure, but another after bootRepackage.
                         afterevalproject.copy {
-                            from afterevalproject.zipTree(jarTask.archivePath)
+                            from afterevalproject.zipTree(jarArchivePath)
                             into settings.dockerBuildDependenciesDirectory
                             exclude "/BOOT-INF/classes/**"
                             exclude "/META-INF/**"
                         }
-                        getLogger().info("jar file populating classes layer ${settings.dockerBuildClassesDirectory} from \n${jarTask.archivePath}")
+                        getLogger().info("jar file populating classes layer ${settings.dockerBuildClassesDirectory} from \n${jarArchivePath}")
                         afterevalproject.copy {
-                            from afterevalproject.zipTree(jarTask.archivePath)
+                            from afterevalproject.zipTree(jarArchivePath)
                             into settings.dockerBuildClassesDirectory
                             include "/BOOT-INF/classes/**"
                             include "/META-INF/**"
@@ -105,20 +106,21 @@ class DockerPreparePlugin implements Plugin<Project> {
                         def warTask
                         try {
                             warTask = afterevalproject.tasks.getByName('war')
-                            File warfile = project.file(warTask.archivePath)
+                            File warTaskArchivePath = insertClassifier(warTask.archivePath,bootRepackageTask.classifier)
+                            File warfile = project.file(warTaskArchivePath)
 
                             if (warfile.exists()) {
-                                getLogger().info("war file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${warTask.archivePath}")
+                                getLogger().info("war file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${warTaskArchivePath}")
                                 //in some projects, jar.archivePath may change after bootRepackage is executed.
                                 // It might be one value during configure, but another after bootRepackage.
                                 afterevalproject.copy {
-                                    from afterevalproject.zipTree(warTask.archivePath)
+                                    from afterevalproject.zipTree(warTaskArchivePath)
                                     into settings.dockerBuildDependenciesDirectory
                                     include "/WEB-INF/lib*/**"
                                 }
-                                getLogger().info("war file populating classes layer ${settings.dockerBuildClassesDirectory} from \n${warTask.archivePath}")
+                                getLogger().info("war file populating classes layer ${settings.dockerBuildClassesDirectory} from \n${warTaskArchivePath}")
                                 afterevalproject.copy {
-                                    from afterevalproject.zipTree(warTask.archivePath)
+                                    from afterevalproject.zipTree(warTaskArchivePath)
                                     into settings.dockerBuildClassesDirectory
                                     exclude "WEB-INF/lib*/**"
                                 }
@@ -286,5 +288,25 @@ class DockerPreparePlugin implements Plugin<Project> {
                 logger.error "f ${it}"
             }
         }
+    }
+
+    /*
+    e.g. with no classifier:
+    ./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT.jar
+    with classifier 'boot':
+    ./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT-boot.jar
+
+     */
+    static File insertClassifier(File archivePath, String classifier) {
+        def outputFile = archivePath
+        if (classifier != null) {
+            def filePattern = ~/(.*)(\.[jw]ar)$/
+            def matcher = archivePath.path =~ filePattern
+            if (matcher.find()) {
+                def newFileName = matcher.group(1) + '-' + classifier + matcher.group(2)
+                outputFile = new File(newFileName)
+            }
+        }
+        outputFile
     }
 }
