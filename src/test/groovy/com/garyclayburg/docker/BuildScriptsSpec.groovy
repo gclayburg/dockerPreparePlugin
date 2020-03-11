@@ -142,7 +142,7 @@ repositories {
 
 dockerprepare{
   	dockerBuildDirectory "\${project.buildDir}/docker"
-	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
+	dockerSrcDirectory "\${project.projectDir}/src/main/docker"
 
 }
 
@@ -189,7 +189,7 @@ repositories {
 
 dockerprepare{
   	dockerBuildDirectory "\${project.buildDir}/docker"
-	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
+	dockerSrcDirectory "\${project.projectDir}/src/main/docker"
 
 }
 
@@ -261,7 +261,7 @@ repositories {
 
 dockerprepare{
   	dockerBuildDirectory "\${project.buildDir}/docker"
-	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
+	dockerSrcDirectory "\${project.projectDir}/src/main/docker"
 
 }
 
@@ -1475,7 +1475,7 @@ repositories {
 
 dockerprepare{
   	dockerBuildDirectory "\${project.buildDir}/docker"
-	dockerSrcDirectory "\${project.rootDir}/src/main/docker"
+	dockerSrcDirectory "\${project.projectDir}/src/main/docker"
 
 }
 

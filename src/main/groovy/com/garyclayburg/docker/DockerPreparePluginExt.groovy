@@ -39,7 +39,7 @@ import org.gradle.api.Project
  * </pre></blockquote>
  * <b>Place your own Dockerfile in this directory to override the <a href="#defaultdocker">default:</a></b>
  * <pre>
- * ${project.rootDir}/src/main/docker/
+ * ${project.projectDir}/src/main/docker/
  * </pre>
  *
  * <hr>
@@ -47,7 +47,7 @@ import org.gradle.api.Project
  * <blockquote><pre>
  * dockerprepare {
  *   commonService = ['org.springframework.boot:spring-boot-starter-web','org.springframework.boot:spring-boot-starter-actuator']
- *   dockerSrcDirectory = "${project.rootDir}/src/main/dockerroot/
+ *   dockerSrcDirectory = "${project.projectDir}/src/main/dockerroot/
  * }
  * </pre></blockquote>
  * <hr>
@@ -187,7 +187,7 @@ documentation to work in a variety of cases
      * <p>If the directory does not exist or is empty, a default Dockerfile
      * and start script for your app will be placed in the
      * {@link #dockerBuildDirectory}
-     * <p> Defaults to "${project.rootDir}/src/main/docker/"
+     * <p> Defaults to "${project.projectDir}/src/main/docker/"
      * @param sourceDirectory Source directory for adding files to docker
      */
     String dockerSrcDirectory
@@ -322,7 +322,7 @@ documentation to work in a variety of cases
      * <p>If the directory does not exist or is empty, a default Dockerfile
      * and start script for your app will be placed in the
      * {@link #dockerBuildDirectory}
-     * <p> Defaults to "${project.rootDir}/src/main/docker/"
+     * <p> Defaults to "${project.projectDir}/src/main/docker/"
      * @param sourceDirectory Source directory for adding files to docker
      */
     void setDockerSrcDirectory(String dockerSrcDirectory) {
@@ -335,7 +335,7 @@ documentation to work in a variety of cases
      * <p>If the directory does not exist or is empty, a default Dockerfile
      * and start script for your app will be placed in the
      * {@link #dockerBuildDirectory}
-     * <p> Defaults to "${project.rootDir}/src/main/docker/"
+     * <p> Defaults to "${project.projectDir}/src/main/docker/"
      * @param sourceDirectory Source directory for adding files to docker
      */
     void dockerSrcDirectory(String sourceDirectory) { //called when closure is applied

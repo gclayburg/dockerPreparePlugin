@@ -441,7 +441,7 @@ In most cases you won't need this, but there are 2 properties with the `dockerpr
 ```groovy
 dockerprepare{
   	dockerBuildDirectory "${project.buildDir}/dockerstaging"
-	dockerSrcDirectory "${project.rootDir}/mydockersrc"
+	dockerSrcDirectory "${project.projectDir}/mydockersrc"
 }
 ```
 

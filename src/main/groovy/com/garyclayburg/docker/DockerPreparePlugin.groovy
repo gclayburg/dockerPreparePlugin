@@ -190,7 +190,7 @@ class DockerPreparePlugin implements Plugin<Project> {
 
     private DockerPreparePluginExt createExtension() {
         settings = project.extensions.create(DOCKERPREPARE_EXTENSION, DockerPreparePluginExt, project)
-        settings.dockerSrcDirectory = "${project.rootDir}/src/main/docker"
+        settings.dockerSrcDirectory = "${project.projectDir}/src/main/docker"
         settings.dockerBuildDirectory = "${project.buildDir}/docker"
         settings.dockerfileSet = "defaultdocker"
         settings
