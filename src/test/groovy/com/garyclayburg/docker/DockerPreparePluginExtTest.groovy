@@ -48,6 +48,19 @@ class DockerPreparePluginExtTest extends Specification {
         new File('./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT.jar') | 'boot' | new File('./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT-boot.jar')
     }
 
+
+    def 'check snapshot path'(String inputPath,String outputPath){
+        expect:
+        DockerPreparePlugin.getSnapshotPath(inputPath) == outputPath
+
+        where:
+        inputPath    | outputPath
+        'tmp/dependenciesLayer2/file-SNAPSHOT.jar'  | 'tmp/snapshotLayer3/file-SNAPSHOT.jar'
+        'tmp/dependenciesLayer2/WEB-INF/lib/file-SNAPSHOT.jar'  | 'tmp/snapshotLayer3/WEB-INF/lib/file-SNAPSHOT.jar'
+        'tmp/dependenciesLayer2/BOOT-INF/lib/file-SNAPSHOT.jar'  | 'tmp/snapshotLayer3/BOOT-INF/lib/file-SNAPSHOT.jar'
+        'tmp/dependenciesLayer2/WEB-INF/lib/file-SNAPSHOT.war'  | 'tmp/snapshotLayer3/WEB-INF/lib/file-SNAPSHOT.war'
+    }
+
     def "create extension"(){
         when:
         DockerPreparePluginExt extension = new DockerPreparePluginExt()

@@ -176,6 +176,7 @@ fi
  */
 @Slf4j
 class DockerPreparePluginExt {
+    public static final String SNAPSHOT_LAYER3 = "snapshotLayer3"
     final Project project
 /*
 Note: groovydoc here is duplicated 3 times for each property to allow Intellij quick
@@ -211,6 +212,12 @@ documentation to work in a variety of cases
      * <p>${project.buildDir}/docker/classesLayer3
      */
     String dockerBuildClassesDirectory
+
+    /**
+     * Build directory where snapshot dependencies are stored during a build
+     */
+    String dockerSnapshotDirectory
+
     /**
      * Build directory where dependencies of this project are placed.  The directory name must
      * match the Directory in your Dockerfile.
@@ -264,6 +271,8 @@ documentation to work in a variety of cases
 
      */
     String dockerfileSet
+
+    boolean snapshotLayer
 
     DockerPreparePluginExt(Project project) {
         this.project = project
@@ -383,9 +392,17 @@ documentation to work in a variety of cases
     void dockerBuildDirectory(String dockerBuildDirectory) {
         log.info("set dockerBuildDirectory to ${dockerBuildDirectory}")
         this.dockerBuildDirectory = dockerBuildDirectory
-        this.dockerBuildClassesDirectory = dockerBuildDirectory + "/classesLayer3"
-        this.dockerBuildDependenciesDirectory = dockerBuildDirectory + "/dependenciesLayer2"
-        this.commonServiceDependenciesDirectory = dockerBuildDirectory + "/commonServiceDependenciesLayer1"
+        if (snapshotLayer) {
+            this.dockerBuildClassesDirectory = dockerBuildDirectory + "/classesLayer4"
+            this.dockerSnapshotDirectory =  dockerBuildDirectory + ("/" + SNAPSHOT_LAYER3)
+            this.dockerBuildDependenciesDirectory = dockerBuildDirectory + "/dependenciesLayer2"
+            this.commonServiceDependenciesDirectory = dockerBuildDirectory + "/commonServiceDependenciesLayer1"
+        } else { //maintain backwards compatibility with existing builds that may use their own custom dockerfile with 3 layers
+            this.dockerBuildClassesDirectory = dockerBuildDirectory + "/classesLayer3"
+            this.dockerSnapshotDirectory =  null
+            this.dockerBuildDependenciesDirectory = dockerBuildDirectory + "/dependenciesLayer2"
+            this.commonServiceDependenciesDirectory = dockerBuildDirectory + "/commonServiceDependenciesLayer1"
+        }
     }
 
     /**
@@ -444,5 +461,18 @@ documentation to work in a variety of cases
      */
     void dockerfileSet(String dockerfileset){
         this.dockerfileSet = dockerfileset
+    }
+
+    boolean getSnapshotLayer() {
+        return snapshotLayer
+    }
+
+    void snapshotLayer(boolean snapshotLayer) {
+        this.setSnapshotLayer(snapshotLayer)
+    }
+
+    void setSnapshotLayer(boolean snapshotLayer) {
+        this.snapshotLayer = snapshotLayer
+        this.dockerBuildDirectory(this.dockerBuildDirectory)
     }
 }

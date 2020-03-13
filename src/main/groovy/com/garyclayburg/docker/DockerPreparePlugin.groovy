@@ -23,6 +23,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.UnknownTaskException
+import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.logging.Logger
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Copy
@@ -62,9 +63,10 @@ class DockerPreparePlugin implements Plugin<Project> {
     public static final String DOCKER_LAYER_PREPARE = 'dockerLayerPrepare'
     public static final String DOCKERPREPARE_EXTENSION = "dockerprepare"
     Project project
-    def settings
+    DockerPreparePluginExt settings
     boolean usingSpringBoot2API = false
     private Task bootRepackageTask
+
 
     @Override
     void apply(Project project) {
@@ -102,6 +104,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                             include "/META-INF/**"
                         }
                         moveCommonJar()
+                        moveSnapShots()
                     } else {
                         def warTask
                         try {
@@ -125,6 +128,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                                     exclude "WEB-INF/lib*/**"
                                 }
                                 moveCommonWar()
+                                moveSnapShots()
                             } else {
                                 getLogger().error("no war file or jar file found to prepare for Docker")
                             }
@@ -190,6 +194,7 @@ class DockerPreparePlugin implements Plugin<Project> {
 
     private DockerPreparePluginExt createExtension() {
         settings = project.extensions.create(DOCKERPREPARE_EXTENSION, DockerPreparePluginExt, project)
+        settings.snapshotLayer = false
         settings.dockerSrcDirectory = "${project.projectDir}/src/main/docker"
         settings.dockerBuildDirectory = "${project.buildDir}/docker"
         settings.dockerfileSet = "defaultdocker"
@@ -209,8 +214,15 @@ class DockerPreparePlugin implements Plugin<Project> {
                 [settings.dockerBuildDirectory + "/Dockerfile", settings.dockerBuildDirectory + "/bootrunner.sh"]
             }
             doLast {
-                def dockerfile = "/${settings.dockerfileSet}/Dockerfile"
-                def bootrunnerfile = "/${settings.dockerfileSet}/bootrunner.sh"
+                def dockerfile
+                def bootrunnerfile
+                if (settings.snapshotLayer){
+                    dockerfile = "/4layers/${settings.dockerfileSet}/Dockerfile"
+                    bootrunnerfile = "/4layers/${settings.dockerfileSet}/bootrunner.sh"
+                } else {
+                    dockerfile = "/${settings.dockerfileSet}/Dockerfile"
+                    bootrunnerfile = "/${settings.dockerfileSet}/bootrunner.sh"
+                }
                 def dockerstream = this.getClass().getResourceAsStream(dockerfile)
                 def bootrunnerstream = this.getClass().getResourceAsStream(bootrunnerfile)
                 if (dockerstream != null && bootrunnerstream != null) {
@@ -308,5 +320,29 @@ class DockerPreparePlugin implements Plugin<Project> {
             }
         }
         outputFile
+    }
+
+    static String getSnapshotPath(String path) {
+        def snapshotpattern = ~/(.*)dependenciesLayer2(.*)$/
+        def matcher = path =~ snapshotpattern
+        def newFileName = null
+        if (matcher.find()) {
+            newFileName = matcher.group(1) + DockerPreparePluginExt.SNAPSHOT_LAYER3 + matcher.group(2)
+        }
+        return newFileName
+    }
+
+    void moveSnapShots() {
+        ConfigurableFileTree tree = project.fileTree(settings.dockerBuildDependenciesDirectory) {
+            include '**/*-SNAPSHOT.jar'
+        }
+        tree.files.each { snapshotfile ->
+            if (settings.getSnapshotLayer()) {
+                project.ant.move(file: snapshotfile.path, toFile: project.file(getSnapshotPath(snapshotfile.path)))
+            } else {
+                project.getLogger().warn('WARNING: {} is a SNAPSHOT dependency.  Consider enabling snapshot layer for better storage efficiency',snapshotfile.name)
+            }
+
+        }
     }
 }
