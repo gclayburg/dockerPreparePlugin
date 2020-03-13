@@ -154,17 +154,36 @@ class DockerPreparePlugin implements Plugin<Project> {
     }
 
     private void moveCommonJar() {
+//        dumpConfigs()
         DependencyMover dm = new DependencyMover(settings: settings, project: project)
-        dm.move('runtime', '/BOOT-INF/lib/')
-        dm.moveProjectJars('runtime', '/BOOT-INF/lib/')
+        dm.move('runtimeClasspath', '/BOOT-INF/lib/')
+        dm.moveProjectJars('runtimeClasspath', '/BOOT-INF/lib/')
         dm.check()
     }
 
+    private void dumpConfigs() {
+        project.getLogger().info("     check project configuration")
+        project.configurations.getNames().each { myname ->
+            project.getLogger().info("      project has configuration named: $myname")
+        }
+        project.configurations.getNames().each { String configName ->
+            project.getLogger().info(" $configName dependences:")
+            try {
+                project.configurations.getByName(configName).files { dependency ->
+                    project.getLogger().info("    ${dependency.group}:${dependency.name}")
+                }
+            } catch (Exception e) {
+                project.getLogger().info("  cannot get dependencies for configuration. "+e.getMessage())
+            }
+        }
+    }
+
     private void moveCommonWar() {
+//        dumpConfigs()
         DependencyMover dm = new DependencyMover(settings: settings, project: project)
         dm.move('providedRuntime', '/WEB-INF/lib-provided/')
-        dm.moveWar('runtime')
-        dm.moveProjectJars('runtime', '/WEB-INF/lib/')
+        dm.moveWar('runtimeClasspath')
+        dm.moveProjectJars('runtimeClasspath', '/WEB-INF/lib/')
         dm.check()
     }
 
