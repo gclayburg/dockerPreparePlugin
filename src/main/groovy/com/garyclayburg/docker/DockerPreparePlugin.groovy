@@ -79,6 +79,12 @@ class DockerPreparePlugin implements Plugin<Project> {
             def jarTask = afterevalproject.tasks.getByName('jar')
             def warT = getWarTask(afterevalproject)
             def expandBootJarTask = afterevalproject.task(EXPAND_BOOT_JAR) {
+// todo fix deprecated jarTask.archivePath references
+// deprecated newer gradle, the replacement jarTask.archiveFile
+// does not exist in oldish gradle versions
+//                println "   jarTask.archivePath $jarTask.archivePath"
+//                println "   bootRepackageTask.archiveFile $bootRepackageTask.archiveFile"
+//                println "   bootRepackageTask.archivePath $bootRepackageTask.archivePath"
                 File jarArchivePath = insertClassifier(jarTask.archivePath,bootRepackageTask.classifier)
                 inputs.files {
                     warT != null ? [jarArchivePath, insertClassifier(warT.archivePath,bootRepackageTask.classifier)] : [jarArchivePath]
@@ -311,7 +317,7 @@ class DockerPreparePlugin implements Plugin<Project> {
      */
     static File insertClassifier(File archivePath, String classifier) {
         def outputFile = archivePath
-        if (classifier != null) {
+        if (classifier != null && classifier != '') {
             def filePattern = ~/(.*)(\.[jw]ar)$/
             def matcher = archivePath.path =~ filePattern
             if (matcher.find()) {

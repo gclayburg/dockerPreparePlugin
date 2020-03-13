@@ -40,6 +40,8 @@ class DockerPreparePluginExtTest extends Specification {
         new File('/tmp/foojar.jar')      | 'boot'     | new File('/tmp/foojar-boot.jar')
         new File('/tmp/foo.jar')         | 'boot-oot'| new File('/tmp/foo-boot-oot.jar')
         new File('/tmp/foo.jar')         | null       | new File('/tmp/foo.jar')
+        new File('/home/gclaybur/dev/spring225demo/demo/build/libs/demo-0.0.1-SNAPSHOT.jar')         | null       | new File('/home/gclaybur/dev/spring225demo/demo/build/libs/demo-0.0.1-SNAPSHOT.jar')
+        new File('/home/gclaybur/dev/spring225demo/demo/build/libs/demo-0.0.1-SNAPSHOT.jar')         | ''       | new File('/home/gclaybur/dev/spring225demo/demo/build/libs/demo-0.0.1-SNAPSHOT.jar')
         new File('/tmp/nested/foo.jar')  | 'boot'     | new File('/tmp/nested/foo-boot.jar')
         new File('//tmp/nested/foo.jar') | 'boot'     | new File('//tmp/nested/foo-boot.jar')
         new File('/tmp/foo.war')         | 'boot'     | new File('/tmp/foo-boot.war')
