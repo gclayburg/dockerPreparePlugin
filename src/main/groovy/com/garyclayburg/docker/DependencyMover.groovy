@@ -31,12 +31,15 @@ import org.gradle.api.artifacts.ResolvedArtifact
 class DependencyMover {
     Set foundDependencies = []
     def alreadyMovedJarfileNames = []
-    def settings
+    DockerPreparePluginExt settings
     Project project
 
     void createdirs(){
         project.file(settings.commonServiceDependenciesDirectory).mkdirs()
         project.file(settings.dockerBuildDependenciesDirectory).mkdirs()
+        if (settings.dockerSnapshotDirectory != null) {
+            project.file(settings.dockerSnapshotDirectory).mkdirs()
+        }
     }
     void move(String configurationName, String partialPath){
         createdirs()
