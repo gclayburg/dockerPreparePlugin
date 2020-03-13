@@ -1030,64 +1030,7 @@ dependencies {
         result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
     }
-/*
-    def 'spring boot 2.3.0 M2'() {
-        given:
-        buildFile << '''
 
-        plugins {
-            id 'org.springframework.boot' version '2.3.0.M2'
-            id 'io.spring.dependency-management' version '1.0.9.RELEASE'
-            id 'com.gorylenko.gradle-git-properties' version '2.0.0'
-            id 'java'
-        }
-
-        group = 'com.example'
-        version = '0.0.1-SNAPSHOT'
-        sourceCompatibility = '1.8'
-
-        configurations {
-            developmentOnly
-            runtimeClasspath {
-                extendsFrom developmentOnly
-            }
-        }
-
-        repositories {
-            mavenCentral()
-            maven { url 'https://repo.spring.io/milestone' }
-        }
-
-        dependencies {
-            compile group: 'com.garyclayburg', name:'upbanner-starter', version: '2.0.13'
-            implementation 'org.springframework.boot:spring-boot-starter-actuator'
-            implementation 'org.springframework.boot:spring-boot-starter-web'
-            developmentOnly 'org.springframework.boot:spring-boot-devtools'
-            testImplementation('org.springframework.boot:spring-boot-starter-test') {
-                exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
-            }
-        }
-        bootJar {
-            //layered()
-        }
-        test {
-            useJUnitPlatform()
-        }
-'''
-        when:
-        BuildResult result = GradleRunner.create()
-                .withProjectDir(testProjectDir.root)
-                .withArguments('build', '--stacktrace', '--info')
-                .withPluginClasspath()
-                .build()
-        println "build output is:"
-        println result.output
-        then:
-        result.output.contains('SUCCESSFUL')
-        result.task(':dockerLayerPrepare').outcome == SUCCESS
-        result.task(':expandBootJar').outcome == SUCCESS
-    }
-*/
     def 'spring boot 2 with executable'() {
         given:
         buildFile << """
