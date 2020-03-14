@@ -22,7 +22,7 @@ To use this, add this snippet to your build.gradle file or use the example at [s
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.3.4"
+  id "com.garyclayburg.dockerprepare" version "1.4.0"
 }
 ```
 The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
@@ -42,7 +42,52 @@ $ cd build/docker
 $ docker build -t demoapp:latest .
 ```
 
-Thats it!  You now have a efficient, streamlined docker image of your Spring Boot app that you can run.  The next build you perform will be much faster since it uses the [docker cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) as much as possible. 
+Thats it!  You now have a efficient, streamlined docker image of your Spring Boot app that you can run.  The next build you perform will be much faster since it uses the [docker cache](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache).  Keep reading to streamline your image even more by enabling the snapshotLayer and commonService layer.
+
+## Requirements
+Your project must:
+- be a Spring Boot application.  Any version of Spring Boot should work.  It has been tested up to version 2.2.5.
+- use gradle.  Versions of gradle 4.1 through 6.2.2 have been tested.  However, later versions of gradle should use the latest version of this plugin for all features to work.
+
+## Change history
+Check the [github releases tab](https://github.com/gclayburg/dockerPreparePlugin/releases) for a list of changes between releases
+
+## Upgrading to version 1.4.0
+Version 1.4.0 is backwards compatible with prior releases.  To upgrade, just change the version number reference in your build.gradle:
+```groovy
+plugins {
+    id 'com.garyclayburg.dockerprepare' version '1.4.0'
+}
+```
+However, if you use your own customized Dockerfile and not the default one, you will need to modify yours when you want to take advantage of the new snapshotLayer3.  The names of layer3 and layer4 have changed slightly.  Compare yours to the default bundled [4layer Dockerfile](src/main/resources/4layers/defaultdocker/Dockerfile)
+
+## Layers
+The example above split your application into 3 docker layers.  They are staged in the build/docker directory and are described in detail below.  
+
+## Snapshot Layer
+New in version 1.4.0 is a 4th layer for snapshot dependencies.  You enable this layer with a boolean flag in dockerprepare like this:
+
+```
+dockerprepare {
+    snapshotLayer = true
+}
+
+dependencies {
+    compile "com.example:service-core:0.7.8-SNAPSHOT"
+...
+}
+```
+
+In this build.gradle, com.example:service-core is a SNAPSHOT of your project.  During the build, dockerprepare will place this jar file in a separate snapshot layer during the build.  Only this one jar file will be placed in the snapshot layer.  All of the transitive dependencies that are required by com.example:service-core will remain in the regular dependencies layer.  Our layers then look like this:
+```
+commonServiceDependenciesLayer1
+dependenciesLayer2
+snapshotLayer3
+classesLayer4
+```
+
+
+The reasoning behind this is that we are telling dockerprepare that we expect all of our SNAPSHOT dependencies to be under active development, meaning it is likely that these SNAPSHOT jar files will change much more often that the other dependencies listed in the project.  As such, we don't want our frequent changing of these snapshots to invalidate the dependenciesLayer2 cache which contains many dependencies.
 
 ## Automating the docker build
 Be sure to check out the samples for examples of integrating this with other gradle plugins that automate the creating of the docker image:
@@ -50,9 +95,10 @@ Be sure to check out the samples for examples of integrating this with other gra
 * [Spring boot 1.5.10 and com.bmuschko.docker-remote-api docker plugin](sample/demo)
 * [Spring boot 2.0 and com.palantir.docker docker plugin](sample20/demo)
 * [Using in a multi-project gradle build](sample-multiproject)
+* [Example with Spring Boot 2.2.5 and Gradle 6.2.2](sample-springboot225)
 # What is in the layers?
 
-This plugin runs in the gradle execution phase after Spring Boot creates your jar or war file.  It splits this application into 3 layers to maximize the chance of docker cache hits.
+This plugin runs in the gradle execution phase after Spring Boot creates your jar or war file.  It splits this application into 3 layers by default or 4 layers when the snapshot layer is enabled. This maximizes the chance of docker cache hits.
  
 ### build/docker/commonServiceDependenciesLayer1/
 
@@ -64,6 +110,7 @@ dockerprepare {
   commonService = ['org.springframework.boot:spring-boot-starter-tomcat','org.springframework.boot:spring-boot-starter-web']
 }
 ```
+This essentially models the commonService layer as the Tomcat server. It contains:
 - 30 jar files
 - 14 MB
 
@@ -81,11 +128,18 @@ dockerprepare {
 
 ### build/docker/dependenciesLayer2/
 
-This layer is created automatically by this plugin.  It contains all dependent jar files that are not transitive dependencies of a `commonService`
+This layer is created automatically by this plugin.  It contains all dependent jar files that are not transitive dependencies of a `commonService`.  This layer will include SNAPSHOT dependencies, unless the snapshot layer is enabled in which case they will be moved to the smapshot layer.
+
+### build/docker/snapshotLayer3/
+Snapshot dependencies, if the snapshot layer is enabled as shown above.
 
 ### build/docker/classesLayer3/
+### build/docker/classesLayer4/
 
 This layer is created automatically by this plugin. It contains everything else that isn't in `build/docker/commonServiceDependenciesLayer1` or `build/docker/dependenciesLayer2`
+
+If you have enabled the snapshotLayer (named snapshotLayer3), the classesLayer3 directory now becomes classesLayer4 in your build/docker directory.  This dockerprepare plugin will create a default Dockerfile for you that takes this into account.  If you are upgrading from a prior version and you want to use the snapshot layer with your own Dockerfile, you will need to make some adjustments to your Dockerfile.  Use the example [4layer Dockerfile](src/main/resources/4layers/defaultdocker/Dockerfile) as a guide.
+
 
 # Quickstart with a new demo app
 
@@ -126,7 +180,7 @@ What we want to do now is take this app and bundle it inside a docker container 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.3.4"
+  id "com.garyclayburg.dockerprepare" version "1.4.0"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
@@ -432,7 +486,7 @@ Notice also that we are specifying an `inputDir` for `buildImage`.  `project.doc
 
 ### Use your own Dockerfile
 
-If you'd rather use your own `Dockerfile`, just copy it and any other static files you need in your docker image into `src/main/docker`.  You'll need to create this directory if it does not exist in your project.  If this plugin finds any files in this directory, it will copy those into the dockerBuildDirectory instead of the default `Dockerfile` and `bootrunner.sh`.  The plugin will still create the docker layer directories in `build/docker/` so you might want to use the default [Dockerfile](src/main/resources/defaultdocker/Dockerfile) as a guide.
+If you'd rather use your own `Dockerfile`, just copy it and any other static files you need in your docker image into `src/main/docker`.  You'll need to create this directory if it does not exist in your project.  If this plugin finds any files in this directory, it will copy those into the dockerBuildDirectory instead of the default `Dockerfile` and `bootrunner.sh`.  The plugin will still create the docker layer directories in `build/docker/` so you might want to use the default [Dockerfile](src/main/resources/defaultdocker/Dockerfile) as a guide.  If you enabled the snapshot layer, you will want to use this [Dockerfile](src/main/resources/4layers/defaultdocker/Dockerfile)
 
 ### Use a custom location for Dockerfile
 
