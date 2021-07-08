@@ -1,18 +1,10 @@
-buildscript {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath "com.gradle.publish:plugin-publish-plugin:0.9.7"
-    }
-}
 
-apply plugin: 'groovy'
-apply plugin: 'java-gradle-plugin'
-apply plugin: 'com.gradle.plugin-publish'
-apply plugin: 'maven'
+plugins {
+    id 'groovy'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id "com.gradle.plugin-publish" version "0.15.0"
+}
 
 ext {
     springBootVersion = '1.5.6.RELEASE'
@@ -34,8 +26,45 @@ dependencies {
 }
 
 group = 'com.garyclayburg'
-version = '1.4.0'
+version = '1.4.1-SNAPSHOT'
 
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            pom {
+                url = 'https://github.com/gclayburg/dockerPreparePlugin'
+                name = 'docker prepare'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'gclayburg'
+                        name = 'Gary Clayburg'
+                        email = '@garyclayburg'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/gclayburg/dockerPreparePlugin.git'
+                    developerConnection = 'scm:git:https://github.com/gclayburg/dockerPreparePlugin.git'
+                    url = 'https://github.com/gclayburg/dockerPreparePlugin'
+                }
+
+            }
+        }
+    }
+    repositories {
+        maven {
+            url = layout.buildDirectory.dir('../repo')
+        }
+    }
+}
+
+/*   (old 'maven' plugin)
 uploadArchives {
     repositories {
         mavenDeployer {
@@ -43,18 +72,24 @@ uploadArchives {
         }
     }
 }
+*/
 
 //gradlew publishPlugins
 pluginBundle {
     website = 'https://github.com/gclayburg/dockerPreparePlugin'
     vcsUrl = 'https://github.com/gclayburg/dockerPreparePlugin'
     description = 'Gradle plugin to generate docker layer-friendly directory for spring boot applications'
-    tags = ['docker','groovy','spring-boot']
-
+    tags = ['docker', 'groovy', 'spring-boot']
+}
+gradlePlugin {
     plugins {
         dockerprepare {
             id = 'com.garyclayburg.dockerprepare'
             displayName = 'Prepare docker layer-friendly directory'
+            description = 'Gradle plugin to generate docker layer-friendly directory for spring boot applications'
+            implementationClass = 'com.garyclayburg.docker.DockerPreparePlugin'
         }
     }
 }
+
+
