@@ -22,10 +22,10 @@ To use this, add this snippet to your build.gradle file or use the example at [s
 
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.4.0"
+  id "com.garyclayburg.dockerprepare" version "x.x.x"
 }
 ```
-The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare)
+The latest version with detailed install instructions can be found on the [gradle plugin portal](https://plugins.gradle.org/plugin/com.garyclayburg.dockerprepare) or in the [Changelog][changelog] 
 
 Build your app:
 
@@ -46,17 +46,17 @@ Thats it!  You now have a efficient, streamlined docker image of your Spring Boo
 
 ## Requirements
 Your project must:
-- be a Spring Boot application.  Any version of Spring Boot should work.  It has been tested up to version 2.2.5.
-- use gradle.  Versions of gradle 4.1 through 6.2.2 have been tested.  However, later versions of gradle should use the latest version of this plugin for all features to work.
+- be a Spring Boot application.  Any version of Spring Boot should work.  It has been tested up to version 2.5.2.
+- use gradle.  Versions of gradle 4.1 through 7.0.2 have been tested.  However, later versions of gradle should use the latest version of this plugin for all features to work.
 
 ## Change history
 Check the [github releases tab](https://github.com/gclayburg/dockerPreparePlugin/releases) for a list of changes between releases
 
-## Upgrading to version 1.4.0
-Version 1.4.0 is backwards compatible with prior releases.  To upgrade, just change the version number reference in your build.gradle:
+## Upgrading to version 1.4.x
+Version 1.4.x is backwards compatible with prior releases.  To upgrade, just change the version number reference in your build.gradle:
 ```groovy
 plugins {
-    id 'com.garyclayburg.dockerprepare' version '1.4.0'
+    id 'com.garyclayburg.dockerprepare' version '1.4.x'
 }
 ```
 However, if you use your own customized Dockerfile and not the default one, you will need to modify yours when you want to take advantage of the new snapshotLayer3.  The names of layer3 and layer4 have changed slightly.  Compare yours to the default bundled [4layer Dockerfile](src/main/resources/4layers/defaultdocker/Dockerfile)
@@ -180,7 +180,7 @@ What we want to do now is take this app and bundle it inside a docker container 
 1. Add this to your build.gradle file.  Or use the example at [sample/demo](sample/demo)
 ```groovy
 plugins {
-  id "com.garyclayburg.dockerprepare" version "1.4.0"
+  id "com.garyclayburg.dockerprepare" version "x.x.x"
 }
 ```
 2. Now run the build again and check the `build/docker` directory
@@ -556,3 +556,5 @@ springBoot{
 }
 
 ``` 
+
+[changelog]: https://github.com/gclayburg/dockerPreparePlugin/blob/master/CHANGELOG.md
