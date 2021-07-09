@@ -48,9 +48,15 @@ class DependencyMover {
             some dependencies might only exist in providedRuntime configuration
              */
             alreadyMovedJarfileNames.add(commonJarFile.name)
-            project.getLogger().info("common $configurationName dependency: "+commonJarFile.name)
-            project.ant.move(file: settings.dockerBuildDependenciesDirectory + partialPath + commonJarFile.name,
-                    tofile: settings.commonServiceDependenciesDirectory + partialPath + commonJarFile.name)
+            project.getLogger().info("commonService $configurationName dependency: "+commonJarFile.name)
+            String srcFilename = settings.dockerBuildDependenciesDirectory + partialPath + commonJarFile.name
+            File srcFile = new File(srcFilename)
+            if (srcFile.exists()) {
+                project.ant.move(file: srcFilename,
+                        tofile: settings.commonServiceDependenciesDirectory + partialPath + commonJarFile.name)
+            } else {
+                project.getLogger().info("cannot move file that doesn't exist: $srcFilename")
+            }
         }
     }
 
