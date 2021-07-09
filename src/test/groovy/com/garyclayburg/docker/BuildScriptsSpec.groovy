@@ -22,10 +22,7 @@ import groovy.util.logging.Slf4j
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.UnexpectedBuildFailure
-import org.junit.Rule
-import org.junit.rules.TemporaryFolder
-import org.junit.rules.TestName
-import spock.lang.Specification
+import spock.lang.IgnoreIf
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
 
@@ -36,45 +33,7 @@ import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
  * @author Gary Clayburg
  */
 @Slf4j
-class BuildScriptsSpec extends Specification {
-    @Rule
-    final TemporaryFolder testProjectDir = new TemporaryFolder()
-    File buildFile
-
-    @Rule
-    TestName name = new TestName()
-    private File srcdir
-
-    def cleanup() {
-        def root = testProjectDir.getRoot()
-        println "build dir after test: ${name.methodName}"
-        root.traverse {
-            println "builddir ${it}"
-        }
-    }
-
-    def "setup"() {
-        println "running test: ${name.methodName}"
-        buildFile = testProjectDir.newFile('build.gradle')
-        srcdir = testProjectDir.newFolder('src', 'main', 'groovy', 'dummypackage')
-        createclass('SimpleMain.groovy', """
-package dummypackage
-
-class DockerplugindemoApplication {
-
-	static void main(String[] args) {
-	    println('this is not the main you are looking for')
-	}
-}
-
-""")
-    }
-
-    private void createclass(String filename, String contents) {
-        File mainclass = new File(this.srcdir, filename)
-        mainclass.createNewFile()
-        mainclass << contents
-    }
+class BuildScriptsSpec extends SpecRoot {
 
     def 'bootRepackage by itself works'() {
         given:
@@ -169,6 +128,8 @@ dependencies {
         bootrunner.exists()
     }
 
+    @SuppressWarnings('UnnecessaryQualifiedReference')
+    @IgnoreIf({ SpecRoot.isUsingModernGradle() })
     def 'apply dockerprepare to build with custom jar'() {
         given:
         buildFile << """
@@ -457,6 +418,8 @@ dependencies {
         count == 30
     }
 
+    @SuppressWarnings('UnnecessaryQualifiedReference')
+    @IgnoreIf({ SpecRoot.isUsingModernGradle() })
     def 'apply dockerprepare with commonService and dual custom jars'() {
         given:
         buildFile << """
@@ -625,6 +588,8 @@ dependencies {
         count == 26
     }
 
+    @SuppressWarnings('UnnecessaryQualifiedReference')
+    @IgnoreIf({ SpecRoot.isUsingModernGradle() })
     def 'commonservice war file with custom jar'() {
         given:
         buildFile << """
@@ -935,6 +900,7 @@ dependencies {
         result.task(':dockerLayerPrepare').outcome == SUCCESS
         result.task(':expandBootJar').outcome == SUCCESS
     }
+
     def 'spring boot 2 as plugin'() {
         given:
         buildFile << """
@@ -1151,6 +1117,8 @@ dependencies {
         thrown UnexpectedBuildFailure
     }
 
+    @SuppressWarnings('UnnecessaryQualifiedReference')
+    @IgnoreIf({ SpecRoot.isUsingModernGradle() })
     def 'war file'() {
         given:
         buildFile << """
@@ -1333,7 +1301,7 @@ docker {
         result.task(':expandBootJar').outcome == SUCCESS
     }
 
-    def 'interop with se.transmode.gradle:gradle-docker'(){
+    def 'interop with se.transmode.gradle:gradle-docker'() {
         given:
         buildFile << """
 buildscript {

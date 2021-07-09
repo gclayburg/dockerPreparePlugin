@@ -32,7 +32,7 @@ class DockerPreparePluginExtTest extends Specification {
 
     def 'check bootRepackaged'(File inputjar,String classifier,File outputjar) {
         expect:
-        DockerPreparePlugin.insertClassifier(inputjar,classifier).path == outputjar.path
+        DockerPreparePlugin.buildClassifiedJarName(inputjar,classifier).path == outputjar.path
 
         where:
         inputjar                         | classifier | outputjar
@@ -50,6 +50,29 @@ class DockerPreparePluginExtTest extends Specification {
         new File('./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT.jar') | 'boot' | new File('./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT-boot.jar')
     }
 
+    def 'check isplain'(File inputFile,String archiveClassifier, boolean yesorno) {
+        expect:
+        DockerPreparePlugin.isPlainJar(inputFile,archiveClassifier) == yesorno
+
+        where:
+        inputFile                                            | archiveClassifier | yesorno
+        new File('/tmp/foo.jar')                             | 'plain'           | false
+        new File('/tmp/foo.war')                             | 'plain'           | false
+        new File('/tmp/foo-plain.jar')                       | 'plain'           | true
+        new File('/tmp/groovy252-0.0.1-SNAPSHOT-plain.jar')  | 'plain'           | true
+        new File('/tmp/groovy252-0.0.1-SNAPSHOT-boring.jar') | 'boring'          | true
+        new File('/tmp/groovy252-0.0.1-SNAPSHOTboring.jar')  | 'boring'          | false
+        new File('/tmp/groovy252-0.0.1-SNAPSHOT.jar')        | 'plain'           | false
+    }
+
+    def 'env check'() {
+        given:
+        System.getenv().each {println 'env ' +it}
+        System.getProperties().forEach({ key, value ->
+            println "props $key: $value"
+        })
+
+    }
 
     def 'check snapshot path'(String inputPath,String outputPath){
         expect:

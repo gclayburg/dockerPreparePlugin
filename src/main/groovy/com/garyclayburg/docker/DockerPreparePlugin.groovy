@@ -27,6 +27,7 @@ import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.logging.Logger
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.TaskOutputs
 import org.gradle.jvm.tasks.Jar
 
 /**
@@ -48,7 +49,7 @@ import org.gradle.jvm.tasks.Jar
  *    dockerprepare {
  *      commonService = ['org.springframework.boot:spring-boot-starter-web','org.springframework.boot:spring-boot-starter-actuator']
  *    }
- *     </pre>
+ *  </pre>
  *
  *
  *  More details on <a href="https://github.com/gclayburg/dockerPreparePlugin">github</a>
@@ -71,6 +72,7 @@ class DockerPreparePlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
         this.project = project
+        project.getLogger().info "using gradle version: ${project.gradle.gradleVersion}"
         project.getLogger().info ' apply com.garyclayburg.dockerprepare'
         settings = createExtension()
         project.afterEvaluate { afterevalproject ->
@@ -83,15 +85,59 @@ class DockerPreparePlugin implements Plugin<Project> {
 // deprecated newer gradle, the replacement jarTask.archiveFile
 // does not exist in oldish gradle versions
 //                println "   jarTask.archivePath $jarTask.archivePath"
-//                println "   bootRepackageTask.archiveFile $bootRepackageTask.archiveFile"
-//                println "   bootRepackageTask.archivePath $bootRepackageTask.archivePath"
-                File jarArchivePath = insertClassifier(jarTask.archivePath,bootRepackageTask.classifier)
+//                if (jarTask.hasProperty('archiveFile')) {
+//                    println "   jarTask.archiveFile $jarTask.archiveFile"
+//                } else {
+//                    println "   jarTask.archiveFile  property does not exist  gradle: ${project.gradle.gradleVersion}"
+//                }
+//                if (bootRepackageTask.hasProperty('archiveFile')) {
+//                    println "   bootRepackageTask.archiveFile $bootRepackageTask.archiveFile"
+//                } else {
+//                    println "   bootRepackageTask.archiveFile property does not exist  gradle: ${project.gradle.gradleVersion}"
+//                }
+//                if (bootRepackageTask.hasProperty('archivePath')) {
+//                    println "   bootRepackageTask.archivePath $bootRepackageTask.archivePath"
+//                } else {
+//                    println "   bootRepackageTask.archivePath property does not exist gradle: ${project.gradle.gradleVersion}"
+//                }
+                TaskOutputs taskOutputs = bootRepackageTask.outputs
+                File jarArchivePath = insertClassifier(jarTask.archivePath, bootRepackageTask)
+                def fileCollection = taskOutputs.getFiles()
+//                fileCollection.each {
+//                    println "        out  $it"
+//                }
+                if (jarTask.hasProperty('archiveClassifier')) {
+                    /*
+                    Not all versions of gradle that people might be using understand archiveClassifier.
+                    Luckily, dynamic groovy doesn't care - so we can use these methods even though we compile
+                    against an older gradle.  But we check first so that we don't throw a missingmethodexception
+                    or missingpropertyexception if this is used with an older gradle.
+
+                    Spring boot 2.5 and above now apply an archiveClassifier of 'plain".  A gradle project can be
+                    configured to use a different classifier like this:
+                    jar {
+                         archiveClassifier = 'boring'
+                    }
+                    So this is why we probe the gradle project to find if the archiveClassifier is plain, boring,
+                    or something else
+                     */
+                    if (isPlainJar(jarArchivePath, jarTask.getArchiveClassifier().get())) {
+                        //newer spring boot (2.5+) uses -plain to identify non-springboot jar files.
+                        //So if we are using this newer spring boot plugin,
+                        // lets make sure to use the output file of the jarTask.
+                        // this one should have all the spring boot goodies.
+                        jarArchivePath = fileCollection.getSingleFile()
+                        // the single file is always good enough?
+                    }
+                }
+                getLogger().info("using spring boot archive: ${jarArchivePath.toString()}")
                 inputs.files {
-                    warT != null ? [jarArchivePath, insertClassifier(warT.archivePath,bootRepackageTask.classifier)] : [jarArchivePath]
+                    warT != null ? [jarArchivePath, insertClassifier(warT.archivePath, bootRepackageTask)] : [jarArchivePath]
                 }
                 outputs.dir { settings.dockerBuildDependenciesDirectory }
                 doLast {
                     File jarfile = project.file(jarArchivePath)
+                    getLogger().info("checking bootjar file ${jarfile}")
                     if (jarfile.exists()) {
                         getLogger().info("jar file populating dependencies layer ${settings.dockerBuildDependenciesDirectory} from \n${jarArchivePath}")
                         //in some projects, jar.archivePath may change after bootRepackage is executed.
@@ -115,7 +161,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                         def warTask
                         try {
                             warTask = afterevalproject.tasks.getByName('war')
-                            File warTaskArchivePath = insertClassifier(warTask.archivePath,bootRepackageTask.classifier)
+                            File warTaskArchivePath = insertClassifier(warTask.archivePath, bootRepackageTask)
                             File warfile = project.file(warTaskArchivePath)
 
                             if (warfile.exists()) {
@@ -136,10 +182,11 @@ class DockerPreparePlugin implements Plugin<Project> {
                                 moveCommonWar()
                                 moveSnapShots()
                             } else {
-                                getLogger().error("no war file or jar file found to prepare for Docker")
+                                getLogger().error("cannot find war file - no war file or jar file found to prepare for Docker")
                             }
                         } catch (UnknownTaskException ignore) {
-                            getLogger().error("no war file or jar file found to prepare for Docker")
+
+                            getLogger().error("war task does not exist - no war file or jar file found to prepare for Docker")
                         }
                     }
                 }
@@ -173,7 +220,7 @@ class DockerPreparePlugin implements Plugin<Project> {
                     project.getLogger().info("    ${dependency.group}:${dependency.name}")
                 }
             } catch (Exception e) {
-                project.getLogger().info("  cannot get dependencies for configuration. "+e.getMessage())
+                project.getLogger().info("  cannot get dependencies for configuration. " + e.getMessage())
             }
         }
     }
@@ -241,7 +288,7 @@ class DockerPreparePlugin implements Plugin<Project> {
             doLast {
                 def dockerfile
                 def bootrunnerfile
-                if (settings.snapshotLayer){
+                if (settings.snapshotLayer) {
                     dockerfile = "/4layers/${settings.dockerfileSet}/Dockerfile"
                     bootrunnerfile = "/4layers/${settings.dockerfileSet}/bootrunner.sh"
                 } else {
@@ -334,8 +381,38 @@ class DockerPreparePlugin implements Plugin<Project> {
     ./scanrunner/build/libs/scanrunner-0.7.8-SNAPSHOT-boot.jar
 
      */
-    static File insertClassifier(File archivePath, String classifier) {
+
+    static File insertClassifier(File archivePath, Task task) {
+        /*
+        Gradle versions 5+ started deprecating '.classifier' in favor of '.archiveClassifier'.
+        projects using this dockerprepareplugin will get a warning if this plugin tries to access
+        .classifier when it is deprecated.  It is scheduled to be removed in gradle 8.
+        However, depending on the version of spring boot used in the project, the spring boot gradle
+        plugin may use .classifier or .archiveClassifier.   So we play backward compatibility games
+        here just because we can.
+
+        Lets use .classifier if .archiveClassifier either does not exist or is not set to a value
+         */
+        boolean useOldClassifier = true
         def outputFile = archivePath
+        if (task.hasProperty('archiveClassifier')) {
+            // we are using a 'newer' gradle
+            String archiveClassifierText = task.getArchiveClassifier().get()
+            if (archiveClassifierText != null) {
+                // we are using a spring boot gradle plugin that uses archiveClassifier
+                useOldClassifier = false
+            }
+        }
+        if (useOldClassifier) {
+            String classifier = task.classifier
+
+            outputFile = buildClassifiedJarName(archivePath, classifier)
+        }
+        outputFile
+    }
+
+    static File buildClassifiedJarName(File archivePath, String classifier) {
+        File outputFile = archivePath
         if (classifier != null && classifier != '') {
             def filePattern = ~/(.*)(\.[jw]ar)$/
             def matcher = archivePath.path =~ filePattern
@@ -345,6 +422,13 @@ class DockerPreparePlugin implements Plugin<Project> {
             }
         }
         outputFile
+    }
+
+// /home/gclaybur/dev/demos/groovy252/build/libs/groovy252-0.0.1-SNAPSHOT-plain.jar
+// /home/gclaybur/dev/demos/groovy252/build/libs/groovy252-0.0.1-SNAPSHOT.jar
+    static boolean isPlainJar(File file, String archiveClassifierText) {
+        def plainPattern = ~/.*-${archiveClassifierText}\.jar$/
+        file.path ==~ plainPattern
     }
 
     static String getSnapshotPath(String path) {
@@ -365,7 +449,7 @@ class DockerPreparePlugin implements Plugin<Project> {
             if (settings.getSnapshotLayer()) {
                 project.ant.move(file: snapshotfile.path, toFile: project.file(getSnapshotPath(snapshotfile.path)))
             } else {
-                project.getLogger().warn('WARNING: {} is a SNAPSHOT dependency.  Consider enabling snapshot layer for better storage efficiency',snapshotfile.name)
+                project.getLogger().warn('WARNING: {} is a SNAPSHOT dependency.  Consider enabling snapshot layer for better storage efficiency', snapshotfile.name)
             }
 
         }

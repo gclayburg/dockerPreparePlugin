@@ -92,4 +92,13 @@ gradlePlugin {
     }
 }
 
+/*
+For full testing, we need to execute with older and newer gradle:
 
+$ sdk use gradle 4.10.3 && gradle --version && MODERN_GRADLE=false gradle clean build
+$ sdk use gradle 6.8.3 && gradle --version && MODERN_GRADLE=true gradle clean
+
+To publish to 'repo' directory:
+$ ./gradlew publish --info -x test
+
+ */
