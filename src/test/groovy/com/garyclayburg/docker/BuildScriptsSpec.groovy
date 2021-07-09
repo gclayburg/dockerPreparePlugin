@@ -43,7 +43,7 @@ buildscript {
 		springBootVersion = '1.5.6.RELEASE'
 	}
 	repositories {
-		jcenter()
+        mavenCentral()
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:1.5.6.RELEASE")
@@ -853,7 +853,7 @@ buildscript {
 		springBootVersion = '2.0.0.RELEASE'
 	}
 	repositories {
-	    jcenter()
+	    mavenCentral()
 		maven { url "https://repo.spring.io/snapshot" }
 		maven { url "https://repo.spring.io/milestone" }
 	}
@@ -949,7 +949,7 @@ buildscript {
 		springBootVersion = '2.0.0.M7'
 	}
 	repositories {
-	    jcenter()
+	    mavenCentral()
 		maven { url "https://repo.spring.io/snapshot" }
 		maven { url "https://repo.spring.io/milestone" }
 	}
@@ -1005,7 +1005,7 @@ buildscript {
 		springBootVersion = '2.0.0.M3'
 	}
 	repositories {
-	    jcenter()
+	    mavenCentral()
 		maven { url "https://repo.spring.io/snapshot" }
 		maven { url "https://repo.spring.io/milestone" }
 	}
@@ -1065,7 +1065,7 @@ buildscript {
 		springBootVersion = '2.0.0.M7'
 	}
 	repositories {
-	    jcenter()
+	    mavenCentral()
 		maven { url "https://repo.spring.io/snapshot" }
 		maven { url "https://repo.spring.io/milestone" }
 	}
