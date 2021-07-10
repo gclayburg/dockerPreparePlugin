@@ -27,7 +27,7 @@ dependencies {
 }
 
 group = 'com.garyclayburg'
-version = '1.4.1'
+version = '1.4.2-SNAPSHOT'
 
 publishing {
     publications {
