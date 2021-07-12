@@ -158,6 +158,23 @@ class DockerPreparePlugin implements Plugin<Project> {
                         moveCommonJar()
                         moveSnapShots()
                     } else {
+                        //todo it seems spring boot plugin changed the way war task works.  This was noticed in version 2.5.2
+                        /*
+                        gihhub issue #9
+                        In older versions of spring boot, if the jarfile did not exist, then the project might be generating a war.
+                        This is no longer the case at least with spring boot 2.5.2.  If a war is being created in the project,
+                        the spring boot plugin has both a 'bootJar' and a 'bootWar' task.  It creates files like this:
+ 18745412  18896 -rw-rw-r--   1 gclaybur gclaybur 19344528 Jul 10 10:05 build/libs/java252war8-0.0.1-SNAPSHOT.war
+ 18745551  13184 -rw-rw-r--   1 gclaybur gclaybur 13496175 Jul 10 10:05 build/libs/java252war8-0.0.1-SNAPSHOT-plain.war
+ 18745416  18892 -rw-rw-r--   1 gclaybur gclaybur 19339926 Jul 10 10:05 build/libs/java252war8-0.0.1-SNAPSHOT.jar
+
+                        Since the boot jar file exists, this plugin assumes it is NOT generating a war based project.
+                        The resulting docker image seems to work, but it is NOT using anything from the war
+                        To get this to work, we would need to rework this section to mimic what the jar section
+                        above does with classifiers and archiveClassifiers and all that fun stuff.
+                        Maybe this can be done if we have a project that needs a war AND uses spring boot 2.5+ AND
+                        wants to use this plugin for better docker images.  Probably unlikely.
+                         */
                         def warTask
                         try {
                             warTask = afterevalproject.tasks.getByName('war')
